@@ -1,0 +1,16 @@
+/* early_hw_init_loop */
+/* idb=5U75-14C337-AA.rebuilt.aligned.bin start=0x00017EE0 end=0x000181E8 size=776 */
+/* export_utc=2026-01-10T18:12:42Z */
+
+void early_hw_init_loop()
+{
+  MEMORY[0x2FC03C] = 57671680;
+  MEMORY[0x2FC380] = 1439476275;
+  while ( !(MEMORY[0x2FC284] & 0x10000) )
+    ;
+  MEMORY[0x2FC280] = MEMORY[0x2FC280] & 0xFFFEFFFF | 0x10000;
+  MEMORY[0x2F8500] = MEMORY[0x2FC280] & 0xFF7FFFFF | 0x800000;
+  MEMORY[0x2FC280] = 862045952;
+  MEMORY[0x2FC284] = 7340160;
+  JUMPOUT(0x17F9C);
+}

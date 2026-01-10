@@ -1,0 +1,515 @@
+{
+  "idb": "5U75-14C337-AA.rebuilt.aligned.bin",
+  "input_path": "Z:\\home\\nicolas\\Development\\MicroController\\ford-tcm\\samples\\SILVEROAK\\5U75-14C337-AA.rebuilt.aligned.bin",
+  "repo_root": "Z:\\home\\nicolas\\Development\\MicroController\\ford-tcm",
+  "out_root": "Z:\\home\\nicolas\\Development\\MicroController\\ford-tcm\\published",
+  "export_utc": "2026-01-10T18:12:42Z",
+  "selection": {
+    "skip_prefixes": [
+      "sub_",
+      "nullsub_",
+      "loc_",
+      "unk_",
+      "j_"
+    ],
+    "note": "Export includes only named functions (non-default prefixes)."
+  },
+  "stats": {
+    "exported": 49,
+    "skipped": 319,
+    "errors": 0
+  },
+  "items": [
+    {
+      "name": "init_immr_mmio_window_30xx",
+      "category": "misc",
+      "ea_start": 33060,
+      "ea_end": 33188,
+      "size": 128,
+      "path": "published/misc/init_immr_mmio_window_30xx",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "memset_like_loc_1796C",
+      "category": "misc",
+      "ea_start": 96620,
+      "ea_end": 96880,
+      "size": 260,
+      "path": "published/misc/memset_like_loc_1796C",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_copy_or_zero_ranges",
+      "category": "misc",
+      "ea_start": 97000,
+      "ea_end": 97144,
+      "size": 144,
+      "path": "published/misc/init_copy_or_zero_ranges",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_immr_and_bootflags",
+      "category": "misc",
+      "ea_start": 97144,
+      "ea_end": 97212,
+      "size": 68,
+      "path": "published/misc/init_immr_and_bootflags",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_fpu_flags",
+      "category": "misc",
+      "ea_start": 97212,
+      "ea_end": 97256,
+      "size": 44,
+      "path": "published/misc/init_fpu_flags",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_early_io_or_flash",
+      "category": "misc",
+      "ea_start": 97256,
+      "ea_end": 97476,
+      "size": 220,
+      "path": "published/misc/init_early_io_or_flash",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_init_stage1_apply_dword_10B40",
+      "category": "boot",
+      "ea_start": 97568,
+      "ea_end": 98012,
+      "size": 444,
+      "path": "published/boot/boot_init_stage1_apply_dword_10B40",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "early_hw_init_loop",
+      "category": "misc",
+      "ea_start": 98016,
+      "ea_end": 98792,
+      "size": 776,
+      "path": "published/misc/early_hw_init_loop",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_mode_select_and_jump",
+      "category": "boot",
+      "ea_start": 98792,
+      "ea_end": 99012,
+      "size": 220,
+      "path": "published/boot/boot_mode_select_and_jump",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_alt_startup",
+      "category": "boot",
+      "ea_start": 99012,
+      "ea_end": 99088,
+      "size": 76,
+      "path": "published/boot/boot_alt_startup",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "diag_update_mode_flags_6D4B_from_cfg",
+      "category": "misc",
+      "ea_start": 105120,
+      "ea_end": 105188,
+      "size": 68,
+      "path": "published/misc/diag_update_mode_flags_6D4B_from_cfg",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_state_check_or_task",
+      "category": "misc",
+      "ea_start": 105188,
+      "ea_end": 105400,
+      "size": 212,
+      "path": "published/misc/init_state_check_or_task",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "diag_update_status_from_rx_header",
+      "category": "misc",
+      "ea_start": 111384,
+      "ea_end": 111932,
+      "size": 548,
+      "path": "published/misc/diag_update_status_from_rx_header",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "diag_state_machine_dispatch",
+      "category": "misc",
+      "ea_start": 115568,
+      "ea_end": 116660,
+      "size": 1092,
+      "path": "published/misc/diag_state_machine_dispatch",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "diag_init_phase2_setbufptrs_and_timeout",
+      "category": "misc",
+      "ea_start": 116660,
+      "ea_end": 116924,
+      "size": 264,
+      "path": "published/misc/diag_init_phase2_setbufptrs_and_timeout",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "diag_dispatch_or_submit_frame",
+      "category": "misc",
+      "ea_start": 116924,
+      "ea_end": 117480,
+      "size": 556,
+      "path": "published/misc/diag_dispatch_or_submit_frame",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_wrapper_guard_1650_output_cycle",
+      "category": "task",
+      "ea_start": 136268,
+      "ea_end": 136304,
+      "size": 36,
+      "path": "published/task/task_wrapper_guard_1650_output_cycle",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_run_entry_callbacks_high_count_15B0",
+      "category": "misc",
+      "ea_start": 137736,
+      "ea_end": 137932,
+      "size": 196,
+      "path": "published/misc/tpu_pwm_run_entry_callbacks_high_count_15B0",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_post_apply_dispatch_and_callbacks",
+      "category": "misc",
+      "ea_start": 137932,
+      "ea_end": 138180,
+      "size": 248,
+      "path": "published/misc/tpu_pwm_post_apply_dispatch_and_callbacks",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_entry_apply_via_mios_305f58",
+      "category": "misc",
+      "ea_start": 138180,
+      "ea_end": 138424,
+      "size": 244,
+      "path": "published/misc/tpu_pwm_entry_apply_via_mios_305f58",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_entry_apply_via_tpu_regs",
+      "category": "misc",
+      "ea_start": 138424,
+      "ea_end": 139124,
+      "size": 700,
+      "path": "published/misc/tpu_pwm_entry_apply_via_tpu_regs",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "io_dispatch_via_15D0_trampoline_and_clear_mask",
+      "category": "misc",
+      "ea_start": 147256,
+      "ea_end": 147548,
+      "size": 292,
+      "path": "published/misc/io_dispatch_via_15D0_trampoline_and_clear_mask",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "io_read_306030_or_3060B0_and_compute",
+      "category": "misc",
+      "ea_start": 148968,
+      "ea_end": 149556,
+      "size": 588,
+      "path": "published/misc/io_read_306030_or_3060B0_and_compute",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "init_roots_write_3FA400_from_r3",
+      "category": "misc",
+      "ea_start": 196604,
+      "ea_end": 197176,
+      "size": 572,
+      "path": "published/misc/init_roots_write_3FA400_from_r3",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tasktable_or_slot_init_from_2A744_and_3FA400",
+      "category": "misc",
+      "ea_start": 202132,
+      "ea_end": 202392,
+      "size": 260,
+      "path": "published/misc/tasktable_or_slot_init_from_2A744_and_3FA400",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "iterate_slots_3FA400_and_update_3FA404",
+      "category": "misc",
+      "ea_start": 202392,
+      "ea_end": 202664,
+      "size": 272,
+      "path": "published/misc/iterate_slots_3FA400_and_update_3FA404",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "iterate_slots_3FA400_call_3734C_38D18",
+      "category": "misc",
+      "ea_start": 202664,
+      "ea_end": 202844,
+      "size": 180,
+      "path": "published/misc/iterate_slots_3FA400_call_3734C_38D18",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_channel_regs_ptr_from_id",
+      "category": "misc",
+      "ea_start": 211876,
+      "ea_end": 211928,
+      "size": 52,
+      "path": "published/misc/tpu_channel_regs_ptr_from_id",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_clear_channel_mask_4020_4420",
+      "category": "misc",
+      "ea_start": 213992,
+      "ea_end": 214084,
+      "size": 92,
+      "path": "published/misc/tpu_clear_channel_mask_4020_4420",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_channel_update_cfgbit1_or_arm",
+      "category": "misc",
+      "ea_start": 233252,
+      "ea_end": 233436,
+      "size": 184,
+      "path": "published/misc/tpu_channel_update_cfgbit1_or_arm",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_channel_update_cfgbit8_or_enable",
+      "category": "misc",
+      "ea_start": 233436,
+      "ea_end": 233616,
+      "size": 180,
+      "path": "published/misc/tpu_channel_update_cfgbit8_or_enable",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_queue_is_pending_check",
+      "category": "misc",
+      "ea_start": 234628,
+      "ea_end": 234648,
+      "size": 20,
+      "path": "published/misc/tpu_pwm_queue_is_pending_check",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_queue_service_15A8",
+      "category": "misc",
+      "ea_start": 234696,
+      "ea_end": 234932,
+      "size": 236,
+      "path": "published/misc/tpu_pwm_queue_service_15A8",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "tpu_pwm_queue_build_and_schedule_task3",
+      "category": "misc",
+      "ea_start": 234932,
+      "ea_end": 235216,
+      "size": 284,
+      "path": "published/misc/tpu_pwm_queue_build_and_schedule_task3",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "isr_decrementer_tick_dispatch_0",
+      "category": "misc",
+      "ea_start": 235216,
+      "ea_end": 237080,
+      "size": 1864,
+      "path": "published/misc/isr_decrementer_tick_dispatch_0",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "scheduler_post_or_arm_task",
+      "category": "scheduler",
+      "ea_start": 237080,
+      "ea_end": 237464,
+      "size": 384,
+      "path": "published/scheduler/scheduler_post_or_arm_task",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "io_update_masks_and_outputs_30xx",
+      "category": "misc",
+      "ea_start": 244496,
+      "ea_end": 245708,
+      "size": 1212,
+      "path": "published/misc/io_update_masks_and_outputs_30xx",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "io_set_float_by_id_and_dispatch_15D0",
+      "category": "misc",
+      "ea_start": 245708,
+      "ea_end": 245788,
+      "size": 80,
+      "path": "published/misc/io_set_float_by_id_and_dispatch_15D0",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "io_write_by_id_dispatch_15D0_15D4",
+      "category": "misc",
+      "ea_start": 246124,
+      "ea_end": 246852,
+      "size": 728,
+      "path": "published/misc/io_write_by_id_dispatch_15D0_15D4",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_update_output_cycle_snapshot_18A8",
+      "category": "task",
+      "ea_start": 266320,
+      "ea_end": 266444,
+      "size": 124,
+      "path": "published/task/task_update_output_cycle_snapshot_18A8",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "timing_delay_or_measure",
+      "category": "misc",
+      "ea_start": 269448,
+      "ea_end": 269564,
+      "size": 116,
+      "path": "published/misc/timing_delay_or_measure",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_update_outputs_from_id_table_252F5",
+      "category": "task",
+      "ea_start": 271748,
+      "ea_end": 271936,
+      "size": 188,
+      "path": "published/task/task_update_outputs_from_id_table_252F5",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_prepare_output_cycle_from_table_252F4",
+      "category": "task",
+      "ea_start": 271988,
+      "ea_end": 272100,
+      "size": 112,
+      "path": "published/task/task_prepare_output_cycle_from_table_252F4",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_entry_orchestrator_43E88",
+      "category": "boot",
+      "ea_start": 278152,
+      "ea_end": 278268,
+      "size": 116,
+      "path": "published/boot/boot_entry_orchestrator_43E88",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_apply_range_table_2A540_variants",
+      "category": "boot",
+      "ea_start": 280792,
+      "ea_end": 281368,
+      "size": 576,
+      "path": "published/boot/boot_apply_range_table_2A540_variants",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "boot_mode_or_selftest_driver",
+      "category": "boot",
+      "ea_start": 281368,
+      "ea_end": 281708,
+      "size": 340,
+      "path": "published/boot/boot_mode_or_selftest_driver",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "state_service_6D4x_and_hooks",
+      "category": "misc",
+      "ea_start": 287616,
+      "ea_end": 287864,
+      "size": 248,
+      "path": "published/misc/state_service_6D4x_and_hooks",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_service_pwm_queue_and_housekeeping",
+      "category": "task",
+      "ea_start": 303716,
+      "ea_end": 303752,
+      "size": 36,
+      "path": "published/task/task_service_pwm_queue_and_housekeeping",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    },
+    {
+      "name": "task_group_output_update_cycle",
+      "category": "task",
+      "ea_start": 304652,
+      "ea_end": 304744,
+      "size": 92,
+      "path": "published/task/task_group_output_update_cycle",
+      "hexrays_ok": true,
+      "hexrays_error": null
+    }
+  ],
+  "errors": []
+}
