@@ -34,22 +34,26 @@ Avanço: next_record = current + payload_size + 8
 
 ### Tabela de Opcodes
 
-| Opcode | Ação | Evidência |
-|--------|------|-----------|
-| **0** | Terminator — sai do loop | `cmpwi r10, 0` @ 0x31D60 → branch para epilogo |
-| **1** | `r13+0x1638 = &record.payload` — publica SDA root 1 | `stw r12, 0x1638(r13)` @ 0x31CE0 |
-| **2** | `r13+0x163C = &record.payload` — publica SDA root 2 | `stw r12, 0x163C(r13)` @ 0x31D50 |
-| **3** | `r13+0x166C = &record.payload` — publica SDA root 3 | `stw r12, 0x166C(r13)` @ 0x31D44 |
-| **4** | Memcpy/Memset: `count=word[2], src=word[3], dst=word[4]`. Se src==0: fill 0xFF. | `mtctr r4` @ 0x31CF8, loop bdnz @ 0x31D0C / 0x31D24 |
-| **5** | Call `nullsub_21` (no-op neste build) | `bl nullsub_21` @ 0x31D38 |
+
+| Opcode | Ação                                                                            | Evidência                                           |
+| ------ | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **0**  | Terminator — sai do loop                                                        | `cmpwi r10, 0` @ 0x31D60 → branch para epilogo      |
+| **1**  | `r13+0x1638 = &record.payload` — publica SDA root 1                             | `stw r12, 0x1638(r13)` @ 0x31CE0                    |
+| **2**  | `r13+0x163C = &record.payload` — publica SDA root 2                             | `stw r12, 0x163C(r13)` @ 0x31D50                    |
+| **3**  | `r13+0x166C = &record.payload` — publica SDA root 3                             | `stw r12, 0x166C(r13)` @ 0x31D44                    |
+| **4**  | Memcpy/Memset: `count=word[2], src=word[3], dst=word[4]`. Se src==0: fill 0xFF. | `mtctr r4` @ 0x31CF8, loop bdnz @ 0x31D0C / 0x31D24 |
+| **5**  | Call `nullsub_21` (no-op neste build)                                           | `bl nullsub_21` @ 0x31D38                           |
+
 
 ### SDA Roots Publicados → Consumidores
 
-| SDA Offset | Set by Opcode | Consumidores Principais | Count |
-|------------|--------------|------------------------|-------|
-| `r13+0x1638` | 1 | `dispatch_via_1638_slot60`, 25+ funções em 0x31xxx-0x33xxx | 25 |
-| `r13+0x163C` | 2 | `callback_gate_via_163c_with_1664_guard`, `sub_32208`, `sub_32348` | 10 |
-| `r13+0x166C` | 3 | `sub_32A2C` (2 refs) | 5 |
+
+| SDA Offset   | Set by Opcode | Consumidores Principais                                            | Count |
+| ------------ | ------------- | ------------------------------------------------------------------ | ----- |
+| `r13+0x1638` | 1             | `dispatch_via_1638_slot60`, 25+ funções em 0x31xxx-0x33xxx         | 25    |
+| `r13+0x163C` | 2             | `callback_gate_via_163c_with_1664_guard`, `sub_32208`, `sub_32348` | 10    |
+| `r13+0x166C` | 3             | `sub_32A2C` (2 refs)                                               | 5     |
+
 
 ---
 
@@ -156,15 +160,18 @@ slot_init_handler_by_channel(slot_index):
 
 Decodifica channel_id em 3 campos (PPC bit numbering):
 
-| Campo | Bits (MSB=0) | Para 0x30 (SS1) | Para 0x36 (EPC) |
-|-------|-------------|------------------|------------------|
-| group | 20-21 (2 bits) | 0 | 0 |
-| type | 22-26 (5 bits) | 1 | 1 |
-| instance | 27-31 (5 bits) | 16 | 22 |
+
+| Campo    | Bits (MSB=0)   | Para 0x30 (SS1) | Para 0x36 (EPC) |
+| -------- | -------------- | --------------- | --------------- |
+| group    | 20-21 (2 bits) | 0               | 0               |
+| type     | 22-26 (5 bits) | 1               | 1               |
+| instance | 27-31 (5 bits) | 16              | 22              |
+
 
 **FATO:** Todos os solenóides 0x30-0x36 pertencem a **group=0, type=1**, variando apenas em instance (16-22).
 
 Lookup multi-nível:
+
 ```
 hw_config_table = *(r13+0x1588)
 group_table     = *(hw_config_table + 0xC)
@@ -179,28 +186,32 @@ slot_ref        = *(r13+0x158C) + computed_offset
 
 ## 4. RAM Structures Criadas (Endereços Fixos)
 
-| Endereço RAM | Conteúdo | Escrito por |
-|-------------|----------|-------------|
-| `0x3FA400` | Root structure pointer (principal) | `root_3FA400_create_and_populate` |
-| `0x3FA404` | Array per-slot (count*3 bytes) | `root_3FA400_create_and_populate` |
-| `0x3FA408` | Array per-channel (count*14 bytes) | `root_3FA400_create_and_populate` |
-| `0x3FA40C` | Config buffer (16 bytes) | `root_3FA400_create_and_populate` |
-| `0x3FAE1C` | Availability bitmap per-group (4 x u32) | Init chain (TBD) |
-| `0x3FAE28` | Pool mapping per-group (4 x u32) | Init chain (TBD) |
+
+| Endereço RAM | Conteúdo                                | Escrito por                       |
+| ------------ | --------------------------------------- | --------------------------------- |
+| `0x3FA400`   | Root structure pointer (principal)      | `root_3FA400_create_and_populate` |
+| `0x3FA404`   | Array per-slot (count*3 bytes)          | `root_3FA400_create_and_populate` |
+| `0x3FA408`   | Array per-channel (count*14 bytes)      | `root_3FA400_create_and_populate` |
+| `0x3FA40C`   | Config buffer (16 bytes)                | `root_3FA400_create_and_populate` |
+| `0x3FAE1C`   | Availability bitmap per-group (4 x u32) | Init chain (TBD)                  |
+| `0x3FAE28`   | Pool mapping per-group (4 x u32)        | Init chain (TBD)                  |
+
 
 ### SDA Root Pointers (r13-relative)
 
-| Offset | Nome | Set By | Used By |
-|--------|------|--------|---------|
-| `0x1588` | hw_config_table | Init @ 0x368B8 | `channel_config_lookup_from_hw_table` |
-| `0x158C` | slot_pool_mapping | Init @ 0x36AD4 | `channel_config_lookup_from_hw_table` |
-| `0x1598` | slot_pool_array | Init @ 0x36AC0 (malloc count*12) | `slot_pool_alloc_channel_id` |
-| `0x1638` | dispatch_root_1 | Mini-interp opcode 1 | 25+ dispatch functions |
-| `0x163C` | dispatch_root_2 | Mini-interp opcode 2 | callback_gate, 10+ functions |
-| `0x1640` | config_ptr_backup | `os_init_sda_roots_via_mini_interpreter` | OS dispatch |
-| `0x164C` | task_sequence_counter | `os_cold_start_setup_timers_and_dispatch` | OS dispatch |
-| `0x1664` | runtime_flags | `os_cold_start_setup_timers_and_dispatch` | Guard checks |
-| `0x166C` | dispatch_root_3 | Mini-interp opcode 3 | `sub_32A2C` |
+
+| Offset   | Nome                  | Set By                                    | Used By                               |
+| -------- | --------------------- | ----------------------------------------- | ------------------------------------- |
+| `0x1588` | hw_config_table       | Init @ 0x368B8                            | `channel_config_lookup_from_hw_table` |
+| `0x158C` | slot_pool_mapping     | Init @ 0x36AD4                            | `channel_config_lookup_from_hw_table` |
+| `0x1598` | slot_pool_array       | Init @ 0x36AC0 (malloc count*12)          | `slot_pool_alloc_channel_id`          |
+| `0x1638` | dispatch_root_1       | Mini-interp opcode 1                      | 25+ dispatch functions                |
+| `0x163C` | dispatch_root_2       | Mini-interp opcode 2                      | callback_gate, 10+ functions          |
+| `0x1640` | config_ptr_backup     | `os_init_sda_roots_via_mini_interpreter`  | OS dispatch                           |
+| `0x164C` | task_sequence_counter | `os_cold_start_setup_timers_and_dispatch` | OS dispatch                           |
+| `0x1664` | runtime_flags         | `os_cold_start_setup_timers_and_dispatch` | Guard checks                          |
+| `0x166C` | dispatch_root_3       | Mini-interp opcode 3                      | `sub_32A2C`                           |
+
 
 ---
 
@@ -276,17 +287,19 @@ EPC = 0x36 @ 0x2A62C: {id=0x36, size=0x10, data=0, 0}
 
 ## 7. Funções Renomeadas no IDA
 
-| EA | Nome Anterior | Nome Atual |
-|----|--------------|------------|
-| 0x031D84 | sub_31D84 | `os_init_sda_roots_via_mini_interpreter` |
-| 0x031DFC | sub_31DFC | `os_cold_start_setup_timers_and_dispatch` |
-| 0x02FFFC | init_roots_write_3FA400_from_r3 | `root_3FA400_create_and_populate` |
-| 0x031594 | tasktable_or_slot_init_from_2A744_and_3FA400 | `task3_slot_alloc_and_init_from_2A744` |
-| 0x038260 | sub_38260 | `channel_config_lookup_from_hw_table` |
-| 0x031C84 | — | `mini_interpreter_publish_sda_roots` (já nomeado) |
-| 0x0381D0 | — | `slot_pool_alloc_channel_id` (já nomeado) |
-| 0x030EC0 | — | `slot_init_handler_by_channel` (já nomeado) |
-| 0x030998 | — | `slot_update_handler_by_channel` (já nomeado) |
+
+| EA       | Nome Anterior                                | Nome Atual                                        |
+| -------- | -------------------------------------------- | ------------------------------------------------- |
+| 0x031D84 | sub_31D84                                    | `os_init_sda_roots_via_mini_interpreter`          |
+| 0x031DFC | sub_31DFC                                    | `os_cold_start_setup_timers_and_dispatch`         |
+| 0x02FFFC | init_roots_write_3FA400_from_r3              | `root_3FA400_create_and_populate`                 |
+| 0x031594 | tasktable_or_slot_init_from_2A744_and_3FA400 | `task3_slot_alloc_and_init_from_2A744`            |
+| 0x038260 | sub_38260                                    | `channel_config_lookup_from_hw_table`             |
+| 0x031C84 | —                                            | `mini_interpreter_publish_sda_roots` (já nomeado) |
+| 0x0381D0 | —                                            | `slot_pool_alloc_channel_id` (já nomeado)         |
+| 0x030EC0 | —                                            | `slot_init_handler_by_channel` (já nomeado)       |
+| 0x030998 | —                                            | `slot_update_handler_by_channel` (já nomeado)     |
+
 
 ---
 
@@ -303,3 +316,4 @@ EPC = 0x36 @ 0x2A62C: {id=0x36, size=0x10, data=0, 0}
 1. **Task 4** (Channel→Physical Solenoid Map): Analisar `channel_config_lookup_from_hw_table` com inputs estáticos group=0, type=1, instance=16-22. Requer decode da tabela apontada por `r13+0x1588`.
 2. **Task 5** (QEMU deeper boot): Com o mini-interpreter emulado, travar SDA roots e observar os type_nibble handlers em runtime.
 3. **Alternativa**: XREFs de 0x395B4 (`tpu_pwm_queue_build_and_schedule_task3`) para encontrar quem armazena esse ponteiro nos slot entries → trace reverso até o type_nibble handler.
+

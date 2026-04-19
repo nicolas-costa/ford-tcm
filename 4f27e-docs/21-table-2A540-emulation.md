@@ -9,6 +9,7 @@
 ## Resumo Executivo
 
 A tabela ROM @ 0x2A540 contém **3 seções** que juntas definem a infraestrutura de runtime do TCM:
+
 1. **Range entries**: 5 regiões RAM zeradas no boot (31 KB total)
 2. **Slot descriptors**: 24 canais (incluindo 7 solenóides) com IDs e tamanhos
 3. **Task descriptors**: 6 tasks mapeando task_id → code_ptr
@@ -19,13 +20,15 @@ A tabela ROM @ 0x2A540 contém **3 seções** que juntas definem a infraestrutur
 
 ## Seção 1: Range Entries (5 × 16 bytes @ 0x2A540)
 
-| # | Start | End | Size | Op | Fill |
-|---|-------|-----|------|-------|------|
-| 0 | 0x3F8000 | 0x3F8F00 | 3840 B | 0x04 (memset) | 0x00 |
-| 1 | 0x3F9500 | 0x3F9D00 | 2048 B | 0x04 (memset) | 0x00 |
-| 2 | 0x3F9D00 | 0x3FA400 | 1792 B | 0x04 (memset) | 0x00 |
-| 3 | 0x3FA400 | 0x3FCB00 | 9984 B | 0x04 (memset) | 0x00 |
-| 4 | 0x3FCB00 | 0x400000 | 13568 B | 0x14 (unknown) | 0x00 |
+
+| #   | Start    | End      | Size    | Op             | Fill |
+| --- | -------- | -------- | ------- | -------------- | ---- |
+| 0   | 0x3F8000 | 0x3F8F00 | 3840 B  | 0x04 (memset)  | 0x00 |
+| 1   | 0x3F9500 | 0x3F9D00 | 2048 B  | 0x04 (memset)  | 0x00 |
+| 2   | 0x3F9D00 | 0x3FA400 | 1792 B  | 0x04 (memset)  | 0x00 |
+| 3   | 0x3FA400 | 0x3FCB00 | 9984 B  | 0x04 (memset)  | 0x00 |
+| 4   | 0x3FCB00 | 0x400000 | 13568 B | 0x14 (unknown) | 0x00 |
+
 
 **Total coberto:** 31.232 bytes (30.5 KB)
 
@@ -35,20 +38,22 @@ A tabela ROM @ 0x2A540 contém **3 seções** que juntas definem a infraestrutur
 
 ## Seção 2: Slot/Channel Descriptors (24 × 12 bytes @ 0x2A5A8)
 
-| ID | Size | Descrição |
-|----|------|-----------|
-| 0x00 | 2 B | Metadata/count |
-| 0x00–0x03 | 16 B | Canais básicos (4) |
-| **0x30** | 16 B | **SS1 (1-2 Shift)** |
-| **0x31** | 16 B | **SS2 (2-3 Shift)** |
-| **0x32** | 16 B | **SS3 (3-4 Shift)** |
-| **0x33** | 16 B | **SS4 (TCC/Lockup)** |
-| **0x34** | 16 B | **EPC (Line Pressure)** |
-| **0x35** | 16 B | **SS5 (Coast Clutch)** |
-| **0x36** | 16 B | **SS6 (Intermediate)** |
+
+| ID        | Size  | Descrição                                |
+| --------- | ----- | ---------------------------------------- |
+| 0x00      | 2 B   | Metadata/count                           |
+| 0x00–0x03 | 16 B  | Canais básicos (4)                       |
+| **0x30**  | 16 B  | **SS1 (1-2 Shift)**                      |
+| **0x31**  | 16 B  | **SS2 (2-3 Shift)**                      |
+| **0x32**  | 16 B  | **SS3 (3-4 Shift)**                      |
+| **0x33**  | 16 B  | **SS4 (TCC/Lockup)**                     |
+| **0x34**  | 16 B  | **EPC (Line Pressure)**                  |
+| **0x35**  | 16 B  | **SS5 (Coast Clutch)**                   |
+| **0x36**  | 16 B  | **SS6 (Intermediate)**                   |
 | 0x40–0x43 | 384 B | Estruturas grandes (init_data @ 0x2A59C) |
 | 0x70–0x72 | 384 B | Estruturas grandes (init_data @ 0x2A59C) |
-| 0x74–0x78 | 16 B | Canais adicionais (5) |
+| 0x74–0x78 | 16 B  | Canais adicionais (5)                    |
+
 
 **7 solenóides confirmados** (IDs 0x30–0x36), consistente com a transmissão 4F27E.
 
@@ -56,14 +61,16 @@ A tabela ROM @ 0x2A540 contém **3 seções** que juntas definem a infraestrutur
 
 ## Seção 3: Task Descriptors (6 × 28 bytes @ 0x2A6D8)
 
-| Task ID | Flags | Code Ptr | Função |
-|---------|-------|----------|--------|
-| 0 | 0x01000000 | 0x048794 | task0_init_entry |
-| 1 | 0x01000000 | 0x048818 | task1_init_entry |
-| 2 | 0x01000000 | 0x04889C | (não analisada) |
-| **3** | 0x01000000 | **0x031598** | **tasktable_or_slot_init_from_2A744_and_3FA400** |
-| **3** | 0x01000000 | **0x041604** | **task3_secondary_entry** |
-| 4 | 0x00001100 | 0xFFFFFFF8 | SENTINEL (terminador) |
+
+| Task ID | Flags      | Code Ptr     | Função                                           |
+| ------- | ---------- | ------------ | ------------------------------------------------ |
+| 0       | 0x01000000 | 0x048794     | task0_init_entry                                 |
+| 1       | 0x01000000 | 0x048818     | task1_init_entry                                 |
+| 2       | 0x01000000 | 0x04889C     | (não analisada)                                  |
+| **3**   | 0x01000000 | **0x031598** | **tasktable_or_slot_init_from_2A744_and_3FA400** |
+| **3**   | 0x01000000 | **0x041604** | **task3_secondary_entry**                        |
+| 4       | 0x00001100 | 0xFFFFFFF8   | SENTINEL (terminador)                            |
+
 
 **FATO:** Task ID 3 tem DOIS entries — um para init da slot table (0x31598) e outro secundário (0x41604).
 
@@ -95,14 +102,16 @@ boot
 
 ## Funções Renomeadas no IDA
 
-| Endereço | Nome Anterior | Nome Novo |
-|----------|---------------|-----------|
-| 0x44460 | init_range_table_2A540_apply | bitmap_index_lookup_2A540 |
-| 0x447BC | sub_447BC | bitmap_set_clear_bit |
-| 0x48790 | sub_48790 | task0_init_entry |
-| 0x48814 | sub_48814 | task1_init_entry |
-| 0x41600 | sub_41600 | task3_secondary_entry |
-| 0x48738 | sub_48738 | task_section_default_init |
+
+| Endereço | Nome Anterior                | Nome Novo                 |
+| -------- | ---------------------------- | ------------------------- |
+| 0x44460  | init_range_table_2A540_apply | bitmap_index_lookup_2A540 |
+| 0x447BC  | sub_447BC                    | bitmap_set_clear_bit      |
+| 0x48790  | sub_48790                    | task0_init_entry          |
+| 0x48814  | sub_48814                    | task1_init_entry          |
+| 0x41600  | sub_41600                    | task3_secondary_entry     |
+| 0x48738  | sub_48738                    | task_section_default_init |
+
 
 ---
 
