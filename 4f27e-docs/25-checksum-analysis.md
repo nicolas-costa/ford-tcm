@@ -171,11 +171,13 @@ Usado pelo validador `loc_6284` para verificação CRC-32 de integridade. **NÃO
 - VB6 P-code (bytecode interpretado por MSVBVM60.DLL)
 - Protegido por packer customizado (seções .UPX0/.UPX1 + cifragem .text)
 - Usa `diCryptoSys.dll` (AES para decifrar `frw.dat`, CRC-32 para integridade VBF)
-- GUI string: **"Dont't recalculate check sum"** — opção para desabilitar recálculo
+- Pode conter **strings** no executável (ex. texto sobre checksum) — isso **não** implica controle visível na GUI. Na prática, o operador vê em geral opções de **tamanho de bloco** e algo do tipo **não apagar/zerar a memória antes de flashear**; não há, na interface comum, um interruptor explícito “não recalcular checksum” documentado de forma confiável.
 - Conhece firmwares TCM: strings `"5M5P-14C337-A"`, `"5M5P-14C337-B"`, `"5M5P-14C337-C"`
 - Aceita formatos: PHF, HEX, BIN
 
 **FATO:** Análise dinâmica via Wine confirmou unpacking bem-sucedido e GUI funcional.
+
+**Implicação para patches:** o BIN/PHF gravado no TCM tem de levar **já** os 16-bit block checksums corretos no header de cada região; **não** contar com o ELMConfig para “arrumar” isso de forma previsível só pela interface.
 
 ---
 

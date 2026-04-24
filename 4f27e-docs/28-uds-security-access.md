@@ -1,7 +1,9 @@
 # 28 — UDS Services & SecurityAccess: Análise Completa
 
-**Data:** 2026-04-19  
-**Status:** ✅ Algoritmo de SecurityAccess reverso e implementado. Aguardando validação on-target.  
+**Data:** 2026-04-19 (inicial), 2026-04-21 (atualização: falha em bootloader)  
+**Status:**
+- ✅ Algoritmo da APLICAÇÃO (firmware AA) reverso, implementado e validado contra vetor `0F26AD→CD931E`.
+- ❌ Algoritmo NÃO funciona contra o bootloader/recovery atual (ver §8). L1 e L3 testadas, ambas rejeitadas.  
 **Dependência:** Firmware AA (IDB com funções nomeadas)
 
 ---
@@ -223,3 +225,68 @@ Fluxo do script:
 | `0x3FDC58` | 4 bytes | Stored seed: `s0 \| (s1<<8) \| (s2<<16)` |
 | `0x3FDC5C` | 4 bytes | Stored key (após auth bem-sucedida) |
 | `0x3FDC50` | 1 byte | IOControl checksum byte (service 0x2F) |
+
+---
+
+## 8. FATO — Algoritmo NÃO cobre estado pós-flash (bootloader/recovery)
+
+**Data:** 2026-04-21  
+**Contexto:** TCM em estado pós-flash v5 fracassado, rodando em bootloader/recovery (não em aplicação).
+
+### Evidência direta (tcm_recovery logs, 12:13:02–12:18:06)
+
+| Service | Request | Response | Interpretação |
+|---------|---------|----------|---------------|
+| `22 F186` | ActiveDiagSession | `7F 22 11` | DID padrão não implementado |
+| `22 F195/F190/F18C/F100/F124` | ISO DIDs | `7F 22 11` | Nenhum DID ISO responde |
+| `10 60` | Ford diag | `7F 10 22` | Rejeitado |
+| `10 81` | Ford proprietary | `50 81` | **POSITIVO** |
+| `10 82` | Ford proprietary | `7F 10 22` | Rejeitado |
+| `10 85` | Ford proprietary | `50 85` | **POSITIVO** |
+| `27 01` | RequestSeed L1 | `67 01 28 7A B4` | Seed entregue |
+| `27 03` | RequestSeed L3 | `67 03 E0 7E 33` | Seed entregue |
+
+### FATO 8.1 — Algoritmo do doc 28 rejeitado em L1 E L3
+
+Seeds capturados e keys rejeitadas usando `tcm_recovery/security.py` (self-test contra vetor de referência AA `0F26AD → CD931E` passa):
+
+| Nível | Seed | Key computada | Resposta do TCM |
+|-------|------|---------------|-----------------|
+| L3 | `E0 7E 33` | `D6 59 C4` | `7F 27 35 (InvalidKey)` |
+| L1 | `28 7A B4` | `D3 26 07` | `7F 27 35 (InvalidKey)` |
+
+**Impacto:** o algoritmo reverso de `sub_0B5E00` (aplicação AA) **não** desbloqueia o TCM no estado atual.
+
+### FATO 8.2 — Estado atual é bootloader, não aplicação
+
+DIDs da aplicação (`0x0100/0x0101/0x0200/0x0202/0xD100/0xD10B`) documentados na seção 4 **não foram testados neste run**, mas o padrão atual é:
+
+- ISO-standard DIDs todos retornam `0x11`.
+- Serviço `0x22` responde mas rejeita tudo.
+- Sessão canônica `0x01/0x02/0x03` rejeitada por `0x22` — aplicação sempre aceita `10 01`.
+- Sessões proprietárias Ford `0x81/0x85` aceitas.
+
+Esse perfil é consistente com **bootloader isolado** (não com aplicação travada). Bootloaders Ford Silveroak possuem stack UDS própria, normalmente com algoritmo de SecurityAccess **distinto** do aplicativo.
+
+### HIPÓTESE 8.3 — Bootloader tem função de key separada
+
+- **HIPÓTESE:** existe uma função `security_key_compute` dentro do bootloader (região protegida, **não** incluída no PHF de aplicação).
+- Lastro: duas chaves computadas via doc 28 (AA app) rejeitadas; doc 28 vetor de referência **passa** o self-test, então nossa implementação da versão-aplicação está correta.
+
+### DESCONHECIDO 8.4
+
+- Endereço/bytes do bootloader (não mapeado em IDA, não presente em `5U75-14C337-AA.bin`).
+- Se o algoritmo do bootloader é uma variação de constantes (`S_init`, `input_magic`) ou estrutura diferente.
+- Se os níveis L1/L3 do bootloader compartilham função ou são independentes.
+
+### Contador de tentativas
+
+**2 tentativas de SecurityAccess falhadas** neste ciclo (L3 `D6 59 C4`, L1 `D3 26 07`). Ford tipicamente permite 3 antes de `NRC 0x36 (exceededAttempts)` → `0x37 (requiredTimeDelay)`.
+
+**Regra operacional:** não enviar mais `27 02/04 <key>` contra este TCM usando algoritmo AA. Próximo erro pode travar por minutos/horas.
+
+### Próximo passo de maior ROI
+
+1. **STOP** com clone ELM327 + algoritmo AA.
+2. Opção A: OpenPort + FORScan Extended ou Ford IDS/SDD (algoritmo do bootloader embarcado nessas ferramentas).
+3. Opção B: obter dump do bootloader Silveroak (JTAG/BDM em outro TCM-doador, ou arquivo de outra fonte) e reverter a função equivalente.
