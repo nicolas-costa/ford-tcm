@@ -1,9 +1,10 @@
 # 28 — UDS Services & SecurityAccess: Análise Completa
 
-**Data:** 2026-04-19 (inicial), 2026-04-21 (atualização: falha em bootloader)  
+**Data:** 2026-04-19 (inicial), 2026-04-21 (atualização: falha em bootloader), 2026-06-22 (BREAKTHROUGH: L3 aceito em 10 85)  
 **Status:**
 - ✅ Algoritmo da APLICAÇÃO (firmware AA) reverso, implementado e validado contra vetor `0F26AD→CD931E`.
-- ❌ Algoritmo NÃO funciona contra o bootloader/recovery atual (ver §8). L1 e L3 testadas, ambas rejeitadas.  
+- ❌ Algoritmo NÃO funciona contra o bootloader/recovery atual (ver §8). L1 e L3 testadas, ambas rejeitadas.
+- ✅ **(2026-06-22) Algoritmo L3 FUNCIONA na APLICAÇÃO AA dentro da sessão `10 85` (programming). Ver §11.**  
 **Dependência:** Firmware AA (IDB com funções nomeadas)
 
 ---
@@ -290,3 +291,169 @@ Esse perfil é consistente com **bootloader isolado** (não com aplicação trav
 1. **STOP** com clone ELM327 + algoritmo AA.
 2. Opção A: OpenPort + FORScan Extended ou Ford IDS/SDD (algoritmo do bootloader embarcado nessas ferramentas).
 3. Opção B: obter dump do bootloader Silveroak (JTAG/BDM em outro TCM-doador, ou arquivo de outra fonte) e reverter a função equivalente.
+
+---
+
+## 9. FATO — Corroboração externa (fórum russo, PCM Ford 2017)
+
+**Fonte:** post comunitário (autor `mag1061`, 2017-04-10) sobre flash de PCM Ford via IDS.
+
+### Evidência: sequência UDS canônica Ford (transcrição literal)
+
+```
+7E0 02 10 85          -> 7E8 02 50 85            ; entra em sessão programação
+7E0 02 27 01          -> 7E8 05 67 01 5C 67 EB   ; seed
+7E0 05 27 02 0D CE 85 -> 7E8 02 67 02            ; key OK
+7E0 04 B1 00 B2 01    -> 7E8 03 7F B1 78 (x N)   ; Ford-proprietary erase (responsePending)
+                      -> 7E8 03 F1 00 B2 00      ; erase done
+7E0 10 09 34 00 84 00 -> 7E8 30 00 ...           ; RequestDownload @ 0x00840000
+7E0 21 03 D1 C0                                  ;   length 0x0003D1C0
+                      -> 7E8 03 74 00 FC         ; ready, block size 0xFC
+7E0 10 FC 36 ...      -> 7E8 30 00 ...           ; TransferData loop
+...
+7E0 01 37             -> 7E8 03 7F 37 78 ...     ; RequestTransferExit
+                      -> 7E8 01 77               ; transfer complete
+```
+
+### FATO 9.1 — A sessão correta é `0x85`, não `0x02`
+
+Post explicitamente usa `10 85`. Bate com nossa evidência empírica (§8). Sessão ISO `0x02` não é o caminho Ford para módulos Silveroak.
+
+### FATO 9.2 — SecurityAccess Level 1 (`27 01/02`), não Level 3
+
+Post confirma: após `10 85`, o unlock é via `27 01 → 67 01 <seed>` → `27 02 <key> → 67 02`. Level 3 (`27 03/04`) não aparece no flow canônico de programação Ford para módulos tipo este. Nossa confusão doc 28 sobre usar L3 vem do fato de que a aplicação AA **também** implementa L3 (para outros fins, provavelmente IO control/bench), mas a flash usa **L1**.
+
+### FATO 9.3 — Serviço `B1` é o ERASE proprietário Ford
+
+Post: `B1 00 B2 01` dispara erase. Payload:
+- `B1` = service ID
+- `00 B2` = sub/selector
+- `01` = segmento
+
+Isso **é** o `B1` que doc 18 §8 identificou como Ford-proprietário em `0x0B5400` (aplicação). Bootloader tem seu próprio handler de `B1`. Por isso nossa strategy I (`31 01 FF 01 CheckProgDep`) foi rejeitada — bootloader não usa `31`; usa `B1`.
+
+### FATO 9.4 — Algoritmo de key é POR MÓDULO
+
+Vetor do post (PCM): seed `5C 67 EB` → key `0D CE 85`.  
+Nossa implementação (algoritmo TCM app AA): mesmo seed → key `53 E0 E9`. **Mismatch.**
+
+Prova: PCM e TCM têm algoritmos **diferentes**. Nossa implementação está correta para TCM aplicação (self-test vector `0F26AD→CD931E` passa). TCM bootloader é **outro algoritmo ainda**, não disponível para nós.
+
+### FATO 9.5 — Estado pós-falha é "erased, awaiting flash"
+
+Tradução literal: "Se durante a programação a sequência estrita for violada ou dados mal enviados, o módulo retorna 'vá se ferrar' e é considerado caído/tijolo **até você carregar corretamente toda a flash e seus parâmetros**."
+
+Esse **é** o estado atual do nosso TCM. Só sai dele com flash completa e válida entregue pelo caminho correto (`10 85` → `27 01/02` → `B1 erase` → `34` → `36 ×N` → `37` → `77`).
+
+### HIPÓTESE 9.6 — Secondary bootloader pode ser obrigatório
+
+Post observa: "В данном случае PCM умеет себя сам стирать без загрузки secondary bootloader. Подавляющее большинство модулей такую загрузку требуют." ("Este PCM apaga a si mesmo sem carregar secondary bootloader. A esmagadora maioria dos módulos exige.")
+
+**HIPÓTESE:** TCM 4F27E Silveroak pode exigir upload de stub "secondary bootloader" antes de `B1 erase`. ELMConfig faz isso na sessão bem-sucedida, não na fracassada. FORScan/IDS sabem.  
+**DESCONHECIDO:** qual stub, de onde vem, se está embarcado no PHF ou no software.
+
+### Consequência operacional
+
+1. Bootloader TCM tem algoritmo de key distinto tanto da aplicação quanto do PCM.
+2. Sem o algoritmo, nenhum clone ELM327 resolve.
+3. Recuperação viável: OpenPort + FORScan Extended (ou Ford IDS/SDD) fazem a sequência completa incluindo secondary bootloader + key correta.
+
+---
+
+## 10. FATO — Power cycle de ignição é parte do protocolo de flash
+
+**Data:** 2026-04-24  
+**Fonte:** observação empírica em FORScan (versão privada, fórum) durante recuperação bem-sucedida do TCM AA via ELM327 USB clone.
+
+### Evidência
+
+FORScan privado **exige** ciclo de ignição OFF/ON em **dois** pontos do procedimento:
+- **Antes** de iniciar o flash (após selecionar o PHF, antes de enviar qualquer comando UDS).
+- **Depois** do flash completar (após `37/77`, antes de tentar reativar a sessão normal).
+
+ELMConfig **não** solicita esses ciclos. ELMConfig falhou consistentemente no passo final ("Rebooting…") com `7F 11 80`. FORScan privado, com os mesmos PHFs e mesmo adaptador, completou com sucesso.
+
+### FATO 10.1 — `11 01` (ECU Reset) não substitui power cycle
+
+NRC `0x80` retornado pelo bootloader em `11 01` (ver §8) é **literalmente** "não me reseta por software, exijo power cycle". Bootloader Ford Silveroak depende de reset por hardware para:
+- Re-ler flag NVRAM "novo firmware candidato"
+- Recomputar checksums dos blocos recém-gravados
+- Decidir se faz boot na nova aplicação ou volta ao modo recovery
+
+### FATO 10.2 — Power cycle pré-flash é precondição para `10 85`
+
+Sem ciclo prévio:
+- State machine UDS herda contexto da última sessão diagnóstica
+- Watchdog de sessão pode estar em estado inválido
+- Bootloader pode rejeitar `10 85` mesmo com adaptador e payload corretos
+
+Com ciclo prévio:
+- ECU em "cold boot" determinístico
+- Bootloader entra em modo "programming-receptive"
+- `10 85` aceito limpo
+
+### FATO 10.3 — Falha do ELMConfig é coerente com ausência de ciclo final
+
+Sequência observada (reconstruída):
+1. ELMConfig escreve blocos via `34/36/37` corretamente.
+2. Sem ciclo, envia `11 01` para "reativar".
+3. Bootloader recusa (`7F 11 80`) porque exige power cycle.
+4. ELMConfig reporta erro mas a flash já foi parcialmente confirmada (writes feitos).
+5. Estado: bytes na flash + flag NVRAM em "pendente" + bootloader esperando ciclo.
+6. Usuário desliga ignição achando que vai resetar — o ciclo, neste momento, **comprova** o flag pendente. Bootloader tenta dar boot, falha por checksum/integridade (porque ELMConfig pode também ter falhado em escrever os checksums corretos), entra em recovery permanente.
+
+### Impacto operacional
+
+Qualquer ferramenta de flash para este TCM (incluindo nossa próxima tentativa com OpenPort) **precisa** instruir o operador a:
+- Cycle OFF/ON antes de iniciar
+- Cycle OFF/ON depois de `37/77`
+
+Não é UX, é protocolo.
+
+### Conexão com §9.5 ("erased, awaiting flash")
+
+A "sequência estrita" mencionada no fórum russo **inclui** os power cycles. Sem eles, o módulo trava no estado descrito em §9.5 mesmo se cada comando UDS individual estiver correto.
+
+---
+
+## 11. BREAKTHROUGH — L3 aceito na APLICAÇÃO dentro de `10 85` (2026-06-22)
+
+**Contexto:** TCM rodando AA stock (recuperado), motor parado, ignição ON. Probe via `tcm_recovery/test_l3_programming_session.py` com ELM327 USB (Windows).
+
+### FATO 11.1 — Sequência atômica bem-sucedida
+
+```
+10 85           → 50 85            (programming session aceita pela APLICAÇÃO)
+27 03           → 67 03 04 85 E5   (seed L3)
+27 04 ED E3 58  → 67 04            (KEY ACEITA — autenticado)
+```
+
+Key computada por `compute_security_key([0x04,0x85,0xE5])` = `ED E3 58`, validada e aceita pelo TCM.
+
+### FATO 11.2 — Timing do seed é crítico
+
+Primeira tentativa falhou com `NRC 0x22 (conditionsNotCorrect)` porque havia um prompt interativo entre `27 03` e `27 04`, causando expiração do seed (janela ~2-5s). `NRC 0x22` aqui **não** é falha de algoritmo nem de pré-condição de veículo — é seed expirado. Corrigido tornando a sequência `10 85 → 27 03 → 27 04` atômica (sem pausa).
+
+**Regra:** o flasher deve enviar a key imediatamente após receber o seed, sem qualquer I/O bloqueante no meio.
+
+### FATO 11.3 — Implicação estratégica
+
+A APLICAÇÃO (não o bootloader) processa `10 85` + L3. Isso significa:
+
+1. **NÃO precisamos do algoritmo de SecurityAccess do bootloader** (§8 fica como beco documentado, não bloqueante).
+2. **NÃO precisamos reverter o ELMConfig** para extrair auth.
+3. O caminho de flash via Python passa pela **aplicação**, usando o algoritmo que já temos (`sub_B5E00`, doc 28 §3).
+
+### O que ainda NÃO está provado (riscos abertos para o flasher)
+
+| # | Pergunta | Risco | Como testar (não-destrutivo possível?) |
+|---|----------|-------|----------------------------------------|
+| 1 | `B1` (erase) é aceito nessa sessão pós-auth? | Alto | Parcialmente — `B1` com seletor inválido pode retornar NRC sem apagar (a confirmar) |
+| 2 | `34/36/37` transfer funciona via aplicação? | Alto | Só testável com erase já feito (destrutivo) |
+| 3 | O hook `blrl 0x3F901C` (doc 29) é acionado nesse path? | Médio | Requer análise IDA do handler 0x34/0xB1 da aplicação |
+| 4 | Pós-flash, qual validação de boot? (Block3 CRC-16 basta?) | Médio | FATO 25.11 sugere que sim (ELMConfig provou) |
+| 5 | Power cycle orquestrável via script? | Baixo | Operador faz manual entre fases |
+
+### Próximo passo de menor risco
+
+Antes de qualquer comando destrutivo, **mapear em IDA o handler do serviço `0x34` (RequestDownload) e `0xB1` da aplicação** (dispatcher 0xB51BC → 0x0B6B94 para 0x34, 0x0B5400 para 0xB1). Objetivo: descobrir se a aplicação faz o flash nativamente OU se ela espera o hook do secondary bootloader (0x3F901C). Isso determina se precisamos de stub ou não — sem tocar no hardware.
