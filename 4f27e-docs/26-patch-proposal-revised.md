@@ -1,9 +1,19 @@
 # 26 — Proposta de Patch: Shift Schedule Calibration
 
-**Data:** 2026-04-19 (v5 — consolidado com Patch 5: retomada 3→2)  
-**Firmware alvo:** `5M5P-14C337-BL.bin` (o que está no TCM)  
-**Status:** Patches 1-3 aplicados e validados. Patches 4-5 pendentes.  
-**Dependência:** Arquitetura de decisão (doc 24 v3), checksum (doc 25), UDS security (doc 28)
+**Data:** 2026-08-03 (v6.2 — v5 + T4→15 + modifiers 185708/185750 Y→0; T7 adiado)  
+**Firmware alvo:** `5U75-14C337-AA.from_phf.bin` (**AA é o nativo do TCM** — ver doc 30 §3)  
+**Status:** Patches 1-5 aplicados em `AA_v5_block3ck_89E4` (Block3 ck 0x89E4 verificado). Pendente teste de rodagem.  
+**Dependência:** Arquitetura de decisão (doc 24 v3), checksum (**doc 30**, não doc 25), UDS security (doc 28)
+
+> ### ⚠️ Requisito real (v6 — corrigido com o operador)
+> O objetivo **não** é proteger a 3ª. É **eliminar o excesso de 3ª entre ~18-30 km/h (velocímetro) = ~15-26 km/h TCM** e **preferir a 2ª** nesse range quando há **aceleração leve** (tip-in ou retomada após coasting). **Não** há requisito de passar pela 2ª em coasting puro (desaceleração até parar).
+>
+> Consequência para os patches:
+> - **Patch 5 (T7/S27 no grupo aceleração)** é o lever principal: sobe o porteiro de saída da 3ª em tip-in → força 3→2 em 15-26 TCM.
+> - **Patch 4 (coast_decel 22→15)** NÃO cria 2ª em coasting (impossível: S25==S27 travados no modo coast). Seu papel real é **manter a 3ª durante o coast** para que, ao tocar o acelerador, o carro caia limpo em 2ª (via Patch 5) em vez de já ter despencado para 1ª — e suavizar/adiar o tranco 3→1.
+
+> ### ⚠️ Checksum (leia antes de gerar qualquer PHF)
+> O modelo correto é **CRC-16/ARC sobre `BIN[start-4 : end-4+1]`, init=0xFFFF** (doc 30 §1.5). O script `scripts/build_patched_firmware.py` usa o modelo **antigo sem shift** e é **PROVADAMENTE ERRADO** para o Block3 (seu self-test é circular contra o `v5.bin` que nunca bootou). **NÃO** usar aquele patcher para gerar firmware de flash. Verificar o ck com `scripts/verify_v5_checksum.py`.
 
 ---
 
@@ -176,7 +186,7 @@ Offset: 0x184B28
 
 ### Patch 4 — Coast Decel Table (S25+S27 em Mode 0x26): 22→15 km/h — 🔴 PENDENTE
 
-**Objetivo:** Baixar base threshold do coast rápido. Elimina 3→1 durante desaceleração forte.
+**Objetivo (revisado v6):** **Manter a 3ª durante o coast** (foot-off) até ~15 km/h TCM, para que ao tocar o acelerador o carro esteja em 3ª e caia limpo em 2ª (Patch 5), em vez de já ter despencado para 1ª. Suaviza/adia o tranco 3→1. **NÃO cria 2ª em coasting** — no modo coast os slots S25 e S27 vêm travados ao mesmo valor base (S25==S27), então a coast_decel só permite 3ª-ou-1ª. Criar 2ª em coasting exigiria decouplar S25 de S27 via a scaling table `0x181908` (não confirmado — ver "Melhorias Futuras").
 
 **Evidência (live RAM):**
 
@@ -424,6 +434,55 @@ Comparação BH vs BL (doc 27): ÚNICA diferença relevante é T5 (2→1 DN): 7.
 
 ---
 
+## Firmware build v6 (escopo travado 2026-08-03)
+
+**v6.1 (plano):** v5 + T4 rows 0–1 → 15.0 TCM (~18 vel). T7 adiado.
+
+### v6.2 (2026-08-09) — build gerado
+
+**v6.2 = v5 + T4→15 + shift-point modifiers Y→0** (`185708`/`185750`).
+
+| Item | Offset | Antes (v5) | v6.2 | ≈ vel | Notas |
+|------|--------|------------|------|-------|-------|
+| T4 row 0 | 0x184B10 | 17.0 | **15.0** | **18** | 1→2 leve cedo |
+| T4 row 1 | 0x184B18 | 17.0 | **15.0** | **18** | idem |
+| Mod S25 Y[] | 0x1856C8…700 | 10/5 | **0.0** | — | doc 50; mata S25=17/22 GATE |
+| Mod S27 Y[] | 0x185710…748 | 10/5 | **0.0** | — | espelho S27 |
+| T4 row 2+ | — | — | intocado | — | |
+| T7 | — | — | adiado | — | |
+
+Artefatos: `firmwares/5U75-14C337-AA_v6.2.bin` / `.PHF`  
+Script: `scripts/build_v6_modifier.py`  
+Block3 ck: `0x89E4` → `0xD475` (−4 / init `0xFFFF`). Master **inalterado** (`0xD8BF`, estratégia v5 / doc 30).
+
+**Validação em pista (velocímetro):**
+
+1. Coast 2ª: sem 2→1 ~19–22 vel; 2→1 só ~15 vel.
+2. Coast saindo de 3ª ~20–25 vel: preferir 3→2.
+3. Tip-in leve: 1→2 ~18 vel.
+4. Logger: com GATE=1, FS≈12 e S25=12 (sumir 19/17 e 24/22).
+
+```
+0x184B10: 41 88 00 00 → 41 70 00 00   (17.0 → 15.0)
+0x184B18: 41 88 00 00 → 41 70 00 00   (17.0 → 15.0)
+```
+
+Block3 ck: recalcular com modelo −4 / init=0xFFFF (doc 30) e verificar.
+
+## Melhorias Futuras (Bordas) — potencial implementação futura
+
+### Borda A — T7 (topo / throttle rows) — ADIADA
+
+Ajuste de T7 row2 (throttle % e/ou velocidade) foi **descartado por hora** (2026-08-03). Patch 5 (T7 retomada) já está em v5; não mexer na borda alta até validar v6 (só T4).
+
+### Borda B — T4 ainda mais baixo — parcial no v6
+
+v6 baixa rows 0–1 para **15.0** (~18 vel). Se ainda segurar 1ª demais sob pedal leve, candidata futura: row2 também, ou 15→14. Não aplicar sem novo log.
+
+> **Nota:** qualquer edição exige re-recálculo do Block3 ck (modelo −4, doc 30).
+
+---
+
 ## Pendências
 
 1. ~~Checksum~~ ✅ CRC-16/ARC. Corrigir no **BIN/PHF** antes de flashear; não depender de opção de “recalcular checksum” no ELMConfig (não consta de forma fidedigna na GUI típica).
@@ -446,5 +505,7 @@ Comparação BH vs BL (doc 27): ÚNICA diferença relevante é T5 (2→1 DN): 7.
 | v3     | 2026-03    | Reescrita com base em disassembly do gear_zone_evaluator                                                                 |
 | v4     | 2026-04-19 | Adicionado Patch 4 (coast_decel 0x182ED0). Root cause #4 identificada via live RAM.                                      |
 | v5     | 2026-04-19 | Adicionado Patch 5 (T7 retomada). RC #5. Lógica completa do evaluator (S27=gatekeeper). Firmware alvo corrigido para BL. |
+| v6     | 2026-08-02 | Requisito re-alinhado (preferir 2ª em accel 15-26 TCM; sem 2ª em coast puro). Patch 4 re-enquadrado (mantém 3ª no coast, não cria 2ª). Base corrigida para AA. Checksum −4 (doc 30). `AA_v5_block3ck_89E4` verificado. Bordas A/B adiadas para futuro. |
+| v6.1   | 2026-08-03 | **Build v6 escopo:** só T4 rows 0–1 → 15.0 (~18 vel). T7 (borda A) descartado por hora. |
 
 
