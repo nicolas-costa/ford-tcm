@@ -83,6 +83,26 @@ Este diretório contém um **snapshot humano** do que foi confirmado até agora 
 | [25-checksum-analysis.md](25-checksum-analysis.md) | Flash block checksum: estrutura, algoritmos testados, achados parciais |
 | [26-patch-proposal-revised.md](26-patch-proposal-revised.md) | Proposta de patch revisada (análise mecânica cinta/torque reverso + evidência BH) |
 | [27-firmware-comparison-BH-BL-CA.md](27-firmware-comparison-BH-BL-CA.md) | Comparação BH vs BL vs CA — shift schedule tables, diferenças isoladas |
+| [31-pressure-tables-located.md](31-pressure-tables-located.md) | Tabelas `0x181xxx` ≠ EPC; rastro invertido duty→QADC/RJURR |
+| [32-cal-mod-mode-switch-9C300.md](32-cal-mod-mode-switch-9C300.md) | Switch modo cal_mod `0x9C300` (51 cases, cadeias `blrl`) |
+| [33-cal-mod-mode0-reset-lookups.md](33-cal-mod-mode0-reset-lookups.md) | Mode 0: reset estado + 1D ROM → `0x3FC0B0+` |
+| [34-cal-mod-parallel-banks-3FC0B0.md](34-cal-mod-parallel-banks-3FC0B0.md) | `3FC0B0` ↛ `3FC070`; bancos paralelos; diff mode0/1 |
+| [35-mode-resets-and-3FC070-threshold.md](35-mode-resets-and-3FC070-threshold.md) | Schedules mode 0–5/8; `3FC070`→`3FC088`/`3FBF6C`; sequenciadores |
+| [36-slots-axis-3FC1BC-not-3FBF6C.md](36-slots-axis-3FC1BC-not-3FBF6C.md) | Slots usam `3FC1BC`, não `3FBF6C`; `9D774` sem refs |
+| [37-slot-axis-3FC1BC-writer-chain.md](37-slot-axis-3FC1BC-writer-chain.md) | Writer `0x81B4C`; `3FDF68`←`0xBD400`; cauda dispatcher |
+| [38-BBC3C-exponent-to-3FDF68.md](38-BBC3C-exponent-to-3FDF68.md) | `BBC3C` re-exp; `3FDF68`; raw `3FA7F0`/1023 |
+| [39-3FA7E0-writers-r13-hw-channels.md](39-3FA7E0-writers-r13-hw-channels.md) | Writers `r13+0x18Ex`; canais HW `0x420`→`3FA7F0/F2` |
+| [40-channel-0x420-toucan-mailbox.md](40-channel-0x420-toucan-mailbox.md) | `0x420`=TouCAN MB1; payload CAN→`3FA7F0` |
+| [41-toucan-B-MB1-module.md](41-toucan-B-MB1-module.md) | `0x420`→TouCAN_B; data `0x307496`; ID pendente |
+| [42-can-0x420-payload-and-logger.md](42-can-0x420-payload-and-logger.md) | Payload 8B; `tcm_road_logger --can` |
+| [43-BD400-float-fanout-from-0x420.md](43-BD400-float-fanout-from-0x420.md) | Fan-out floats `3FDF60/64/68`, `3FD52C/540`; corrige fsub1023 |
+| [44-3FD52C-readers-shift-gates.md](44-3FD52C-readers-shift-gates.md) | `3FD52C`→flag`3FD48C`→slot`3FBC24`; 2D c/ `3FE104` |
+| [45-desc-188768-and-3FD540-readers.md](45-desc-188768-and-3FD540-readers.md) | Formato 1D; `3FD540`/`3FDF64`→`3FD4E8`; paradoxo count/ptr |
+| [46-cal-1d-consumers-inventory.md](46-cal-1d-consumers-inventory.md) | Item 2: 406 sites / 124 funcs; famílias; handoff TCC `0x1845E8` |
+| [47-TCC-inverted-slot-0x35.md](47-TCC-inverted-slot-0x35.md) | Item 3: TCC/SSE idx5 duty→QADC `0x10`; ≠ mapa `0x1845E8` |
+| [48-caller-9AE3C-static-wall.md](48-caller-9AE3C-static-wall.md) | Item 5: 0 caller externo no bin; só case9; cluster órfão |
+| [49-diff-BH-BL-CA-181xxx-threshold-mod.md](49-diff-BH-BL-CA-181xxx-threshold-mod.md) | Item 4: BL≡CA≡AA; cal_mod→3FC070 idêntico BH; delta H_THRESH→3FC0B0/B4 |
+| [50-shift-point-modifiers-185708.md](50-shift-point-modifiers-185708.md) | Modifiers 1D `185708`/`185750`; GATE→S25/S27; patch v6 Y→0 |
 
 Dois ficheiros usam o prefixo `18-` (tópicos distintos; escolher pelo tema na tabela).
 
