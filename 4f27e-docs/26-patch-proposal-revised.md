@@ -507,5 +507,6 @@ v6 baixa rows 0–1 para **15.0** (~18 vel). Se ainda segurar 1ª demais sob ped
 | v5     | 2026-04-19 | Adicionado Patch 5 (T7 retomada). RC #5. Lógica completa do evaluator (S27=gatekeeper). Firmware alvo corrigido para BL. |
 | v6     | 2026-08-02 | Requisito re-alinhado (preferir 2ª em accel 15-26 TCM; sem 2ª em coast puro). Patch 4 re-enquadrado (mantém 3ª no coast, não cria 2ª). Base corrigida para AA. Checksum −4 (doc 30). `AA_v5_block3ck_89E4` verificado. Bordas A/B adiadas para futuro. |
 | v6.1   | 2026-08-03 | **Build v6 escopo:** só T4 rows 0–1 → 15.0 (~18 vel). T7 (borda A) descartado por hora. |
+| v6.3   | 2026-08-20 | **Build** (doc 51): T7 E′ + T4 thr 12→16%. Flash pendente validação plano. |
 
 

@@ -103,6 +103,7 @@ Este diretório contém um **snapshot humano** do que foi confirmado até agora 
 | [48-caller-9AE3C-static-wall.md](48-caller-9AE3C-static-wall.md) | Item 5: 0 caller externo no bin; só case9; cluster órfão |
 | [49-diff-BH-BL-CA-181xxx-threshold-mod.md](49-diff-BH-BL-CA-181xxx-threshold-mod.md) | Item 4: BL≡CA≡AA; cal_mod→3FC070 idêntico BH; delta H_THRESH→3FC0B0/B4 |
 | [50-shift-point-modifiers-185708.md](50-shift-point-modifiers-185708.md) | Modifiers 1D `185708`/`185750`; GATE→S25/S27; patch v6 Y→0 |
+| [51-v6.3-proposal-t7-e-prime-t4.md](51-v6.3-proposal-t7-e-prime-t4.md) | **Proposta v6.3** T7 E′ + T4 throttle — aguardando OK |
 
 Dois ficheiros usam o prefixo `18-` (tópicos distintos; escolher pelo tema na tabela).
 
