@@ -20,7 +20,10 @@
 ```text
 python3 -u scripts/tcm_road_logger.py <PORT> <BAUD> --can
 python3 -u scripts/tcm_road_logger.py <PORT> <BAUD> --full --can
+python3 -u scripts/tcm_road_logger.py <PORT> <BAUD> --gate
 ```
+
+`--gate` (2026-08-20): implica `--can`; lê **S26/S27** no FAST (sem `--full`); acrescenta eixo modifier `0x3FD464` e `MB1_B0…B7`. Uso: plano vs ladeira (doc 51).
 
 | Coluna CSV | EA | Nota |
 |------------|-----|------|
@@ -98,8 +101,8 @@ Após sucesso: `stb 0 → 0x185A(r13)` (libera debounce do gate `3FA7E1`).
 
 ## Resumo Executivo BRUTAL
 
-- **Logger:** `--can` cobre MMIO MB1 + cadeia RAM.
+- **Logger:** `--can` cobre MMIO MB1 + cadeia RAM. `--gate` = isso + S27 + eixo `3FD464` + bytes MB1.
 - **Provado:** frame 8B → dois u16 packed (off 0–1 e 4–5) + bytes 6–7; off 2–3 mortos neste path.
 - **Provado:** `3FA7F4`/`3FA7F6` só voltam a ser lidos em `BD400`.
 - **Aberto:** CAN-ID (só vivo / config ainda opaca).
-- **Próximo ROI:** ver doc 43 — fan-out completo; seguir leitores de `3FD52C` / escala ×100/256.
+- **Próximo ROI:** log `--gate` plano vs ladeira (mesma vel + mesmo THR); se S27/`3FD52C`/CAN iguais → sem override de rampa.
