@@ -114,6 +114,21 @@ TouCAN_B MB1 @ 0x307496 (8B)
 
 ---
 
+## ATUALIZAÇÃO 2026-10-01 — fórmula do ID + config_root estático (parede dinâmica)
+
+- **FATO (reverse de `0x13C14`):** standard ID = `sth (*(r31)>>3)<<5 → MB[0x82]`, `r31=*(mb_desc+4)`.
+  ⇒ **`can_id = *(u32)(*(mb_desc+4)) >> 3`**. Cadeia:
+  `config_root → +0xC → module_array → [mod] → +8 → mb_desc → +4 → id_obj → *() >>3`.
+- **FATO:** instalador em `0x17E54` monta `r3=0x10F1C` e `blrl 0x13C14` (`0x17E5C`).
+  ⇒ `config_root` **estático = `0x10F1C`**.
+- **FATO (parede):** walk de `0x10F1C` dá `count[0]=0` e `[+0xC]=0x3F48` (→ **código**). A estrutura
+  estática está vazia ⇒ a config real da TouCAN é **instalada em RAM** em runtime (mesma indireção
+  fnptr do doc 48). Sem `bl`/`lis+addi` para parser `0xDA8` nem `0x13C10`.
+- **FATO (runtime):** config instalado vive em `*(r13+0x724)=0x3F9624` e `*(r13+0x6B7C)=0x3FFA7C`
+  (r13=`0x3F8F00`). Tabelas de grupo: `r13+0x728`=`0x3F9628`, `r13+0x6B80`=`0x3FFA80`.
+- **PRÓXIMO (vivo, RAM, não-MMIO):** `scripts/tcm_can_id_probe.py` lê esses ponteiros e caminha a
+  cadeia → ID numérico. MMIO `0x307492` dá NRC; RAM lê.
+
 ## Resumo Executivo BRUTAL
 
 - **Provado:** `0x420` = **TouCAN_B / mailbox 1**; data @ **`0x307496`**.

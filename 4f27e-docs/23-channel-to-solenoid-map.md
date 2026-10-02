@@ -1,7 +1,7 @@
 # 23 — Mapeamento Channel_ID → Solenóide Físico (TPU Hardware)
 
 **Data:** 2026-03-22  
-**Status:** ✅ Tabela ROM @ 0x252F4 decodificada. 7 canais mapeados para pinos TPU. ON/OFF vs PWM diferenciados por calibração.  
+**Status:** ⚠️ **PARCIALMENTE FALSIFICADO EM CAMPO (2026-09-07 — ver [doc 52](52-idx0-is-pressure-solenoid-road-2026-09-07.md)).** A decodificação da tabela ROM `0x252F4` (hw_ch / io_idx / flags / ordinal) continua válida. Os **nomes de solenóide** não: `idx4 = EPC` e `idx0 = SSA` foram derrubados por log de rua. Além disso, `D1…D5` (duty `+0xE` dos idx1–5) leem **0 em 2286/2286 amostras** cobrindo P/R/N e marchas 1–4 → **as shift solenoids não passam por esta struct**.  
 **Dependência:** Cadeia boot→solenoid (doc 22), tabela 0x2A540 (doc 21)
 
 ---
@@ -9,7 +9,8 @@
 ## Resumo Executivo
 
 1. **FATO:** A ROM table @ 0x252F4 contém 7 entries de 4 bytes cada, mapeando `{hw_channel, io_index, flags, ordinal}`. 6 canais físicos (0x30-0x35) usam TPU_A ch12-15 e TPU_B ch0-1. O 7º (0x36) é virtual (flags=0x05, io compartilhado).
-2. **FATO:** Calibração @ 0x18A2A8 + 0x18A1DE classifica: **4 solenóides ON/OFF** (SSA-SSD, period=0) + **1 PWM ~100Hz** (EPC) + **1 PWM ~33Hz** (SSE proporcional). Total: **6 solenóides físicos** conforme 4F27E.
+2. **FATO:** Calibração @ 0x18A2A8 + 0x18A1DE classifica: **4 canais period=0** (idx0–3) + **1 PWM ~100Hz** (idx4) + **1 PWM ~33Hz** (idx5). Total: **6 canais físicos** + 1 virtual.  
+   **HIPÓTESE (sessões antigas, sem prova pin↔OEM):** nomes SSA/SSB/SSC/SSD/SSE/EPC na tabela abaixo. Chart hidráulico oficial (ATSG/Ford) **não** valida idx0=SSA — ver nota §3.
 3. **FATO:** A cadeia de output é: `solenoid_output_group_update_cycle` → `solenoid_outputs_prepare_cycle` → `solenoid_outputs_update_7ch` → `io_set_float_by_id_and_dispatch_15D0` → `tpu_pwm_entry_apply_via_tpu_regs` → registros TPU em 0x304100+ch*16.
 4. **Próximo passo:** Task 5 — QEMU harness para validar os duty cycles em runtime e observar a lógica de shift (gear selection → solenoid pattern).
 
@@ -89,12 +90,12 @@
 ### Grupo 1: ON/OFF (4 canais, period=0)
 
 
-| Slot ID | TPU Channel | Config | Candidato Físico                     |
+| Slot ID | TPU Channel | Config | Nome legado (HIPÓTESE)               |
 | ------- | ----------- | ------ | ------------------------------------ |
-| 0x30    | TPU_A ch13  | 0x04   | Shift Solenoid A                     |
-| 0x31    | TPU_A ch12  | 0x02   | Shift Solenoid B (config diferente!) |
-| 0x32    | TPU_A ch14  | 0x04   | Shift Solenoid C                     |
-| 0x33    | TPU_A ch15  | 0x04   | Shift Solenoid D                     |
+| 0x30    | TPU_A ch13  | 0x04   | “SSA” — **não provado**              |
+| 0x31    | TPU_A ch12  | 0x02   | “SSB” (config diferente!)            |
+| 0x32    | TPU_A ch14  | 0x04   | “SSC”                                |
+| 0x33    | TPU_A ch15  | 0x04   | “SSD”                                |
 
 
 ### Grupo 2: PWM (2 canais, period≠0)
@@ -114,28 +115,25 @@
 | 0x36    | TPU_A ch3   | 0x05  | io_index compartilhado com 0x32. Provável virtual/diag. |
 
 
-### Mapeamento: 6 Solenóides Físicos (EPC + SSA-SSE)
+### Mapeamento firmware (FATO) vs nome OEM (HIPÓTESE)
 
-A 4F27E possui **6 solenóides**: EPC, SSA, SSB, SSC, SSD, SSE.
+OEM (doc oficial / ATSG): 2× ON/OFF (SSA, SSB) + 3× PWM (SSC, SSD, SSE) + EPC.  
+Firmware: 4× period=0 + 1× ~100 Hz + 1× ~33 Hz — **a classificação period≠PWM OEM não fecha 1:1**.
 
+| Idx | Slot | TPU | Period | Nome legado | Status do nome |
+| --- | ---- | --- | ------ | ----------- | -------------- |
+| 0 | 0x30 | TPU_A ch13 | 0 | “SSA” | **HIPÓTESE** — só ordem/candidatura antiga |
+| 1 | 0x31 | TPU_A ch12 | 0 | “SSB” | **HIPÓTESE** (config 0x02 distinto) |
+| 2 | 0x32 | TPU_A ch14 | 0 | “SSC” | **HIPÓTESE** |
+| 3 | 0x33 | TPU_A ch15 | 0 | “SSD” | **HIPÓTESE** |
+| 4 | 0x34 | TPU_B ch1 | 100 | “EPC” | **HIPÓTESE forte** (único ~100 Hz) — duty vivo `0x3FA722` morto em campo |
+| 5 | 0x35 | TPU_B ch0 | 300 | “SSE” | **HIPÓTESE forte** (único ~33 Hz) |
+| 6 | 0x36 | TPU_A ch3 | flags 0x05 | virtual | **FATO:** não é 7º físico independente |
 
-| Slot ID | TPU Channel | Tipo   | Period       | **Solenóide**                         | Evidência                                         |
-| ------- | ----------- | ------ | ------------ | ------------------------------------- | ------------------------------------------------- |
-| 0x30    | TPU_A ch13  | ON/OFF | 0            | **SSA** (Shift Solenoid A)            | ON/OFF, config=0x04                               |
-| 0x31    | TPU_A ch12  | ON/OFF | 0            | **SSB** (Shift Solenoid B)            | ON/OFF, config=0x02 (driver diferente)            |
-| 0x32    | TPU_A ch14  | ON/OFF | 0            | **SSC** (Shift Solenoid C)            | ON/OFF, config=0x04                               |
-| 0x33    | TPU_A ch15  | ON/OFF | 0            | **SSD** (Shift Solenoid D)            | ON/OFF, config=0x04                               |
-| 0x34    | TPU_B ch1   | PWM    | 100 (~100Hz) | **EPC** (Electronic Pressure Control) | Único PWM alta freq, controle de pressão de linha |
-| 0x35    | TPU_B ch0   | PWM    | 300 (~33Hz)  | **SSE** (Shift Solenoid E)            | PWM baixa freq, solenóide proporcional            |
+**Chart OEM (estável):** Drive 2ª = SSE ON; SSA OFF. Drive 4ª = SSA ON.  
+**Campo:** idx0 (`0x3FA6C4`) mexe no tip-in 3→2 — casa melhor com papel de **SSE** no chart do que com SSA. Isso **enfraquece** idx0=SSA; **não prova** idx0=SSE sem cruzar duties idx0–5 × marcha.
 
-
-**Canal 0x36** (TPU_A ch3, flags=0x05, io_index compartilhado com SSC): canal virtual/diagnóstico, NÃO solenóide físico.
-
-**Notas:**
-
-- SSB (0x31) tem config=0x02 vs 0x04 para os demais ON/OFF. Pode indicar polaridade invertida ou driver de potência diferente no circuito.
-- SSE (0x35) opera como solenóide proporcional via PWM (~33Hz), não ON/OFF como SSA-SSD.
-- EPC (0x34) tem a maior frequência PWM (~100Hz), consistente com controle fino de pressão de linha.
+**Próximo ROI:** log duties `+0xE` dos 6 canais vs GEAR e casar com chart oficial.
 
 ---
 

@@ -1,28 +1,38 @@
 # 24 — Shift Schedule Tables: Extração, Mapeamento e Arquitetura de Decisão
 
-**Data:** 2026-04-19 (v3 — live RAM logging, 3 grupos de slot confirmados, coast_decel table identificada)  
-**Status:** ✅ 10 tabelas + coast_decel table. Pipeline completo mapeado com dados ao vivo via UDS 0x23.  
+**Data:** 2026-04-19 (v3 — live RAM). **Revisto 2026-10-01** contra docs 26, 50, 63, 71, 72.  
+**Status:** amostras de slot (abr/2026) permanecem. A causa "coast_decel @ 0x182ED0 → S24/S25" está **revogada**.  
 **Dependência:** Binário corrigido (doc 20), mapeamento solenóide (doc 23), UDS security (doc 28)
+
+## Correções posteriores (ler antes do resto)
+
+| Trecho deste doc                                                 | Estado em 2026-10                                                                                                                                                                                                                                                                                                   | Fonte           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `0x182ED0` = 7×22.0 km/h, root cause do 3→1, patch alvo          | **Revogado.** `22.0` é a 2ª word de outro objeto. O call em `0x87C20` passa `r3=0x187514` e grava `3FBC14`, não S24/S25.                                                                                                                                                                                            | docs 71, 72     |
+| Disasm `lwz r3,0(r25)` / `ori r3,0x7514` / `bne loc_87C64`       | **Não é o que está na ROM.** O sítio real é `lhz 3FBBCC` @ `0x87BEC`, `cmpwi 0x26` @ `0x87BF0`, `addi r3,0x7514` @ `0x87C20`, normal em `0x87C70` (`r3=0x184218`).                                                                                                                                                  | doc 71          |
+| S25=17 e S25=22 em coast vêm de tabelas `0x182xxx` / `0x182ED0`  | **Revogado para MODE=0.** S25 = `T5(12) + Y`, Y da 1D `0x185708` (Y=5 → 17, Y=10 → 22) com GATE `3FD48C=1`. Espelho `0x185750` alimenta S27.                                                                                                                                                                        | doc 50          |
+| Patches T10/T11/T4 são o estado atual; falta patch em `0x182ED0` | **Histórico de abr/2026.** v5 aplicou T11 20→12, T10, T4 row3 23→18. v6.2 (doc 26) soma T4 rows 0–1 → 15.0 e zera Y de `185708`/`185750`. Não patchar `0x182ED0`.                                                                                                                                                   | docs 26, 50     |
+| `3FBBCC` é u32 "mode selector = coast"                           | É **u16** (`sth`/`lhz`), ID de tipo de troca. `0x26` quando `3FC3AA≠0`. No cal_mod o índice `0x26` é no-op.                                                                                                                                                                                                         | docs 63, 69, 71 |
+| Bitmask `{1,2,4,8}` = 1ª..4ª como fato de encoder                | Os **números** 1/2/4/8 nos logs são observação de campo. O encoder não prova sozinho que 1=1ª.                                                                                                                                                                                                                      | doc 63          |
+| Formato "col0 = km/h, col1 = throttle"                           | O 1D compara o **primeiro** float do par como breakpoint e devolve o **segundo** (`0xBBDDC`/`0xBBDE8`). Nas tabelas abaixo o breakpoint mostrado é o throttle e o valor é a velocidade. O count está na word **anterior** ao endereço passado ao lookup; `lbz 0(r3)` no entry `0xBBDC8` lê o byte alto do ponteiro. | doc 72          |
 
 ---
 
 ## Resumo Executivo
 
-1. **FATO:** 10 shift schedule tables localizadas em ROM @ 0x184B10-0x184EC4 + coast_decel table @ 0x182ED0. Formato: pares (speed_km/h, throttle_%) com count=7-11 rows. Interpolação feita via 1D lookup em `qword_BBDC8` (ROM @ 0xBBDC8) e 2D via `cal_2d_lookup_interpolate` (0xBBE44).
+1. **FATO:** 10 shift schedule tables em ROM @ 0x184B10–0x184EC4. Interpolação 1D em `0xBBDC8`, 2D em `0xBBE48` (o entry do wrapper é `0xBBE48`, não `0xBBE44`). A tabela citada como coast_decel @ `0x182ED0` **não** é o grid desse call — doc 72.
 2. **FATO:** `shift_table_group_dispatcher` (0x9D860) e `shift_slot_eval_with_mode_switch` (0x872B4) selecionam um **grupo de tabelas** baseado em flags RAM e mode selector (0x3FBBCC) e escrevem thresholds em **6 slots RAM** (0x3FBC24-0x3FBC29).
 3. **FATO:** `gear_zone_evaluator` (0x83484) consome os slots e determina o **gear target**, armazenado em RAM 0x3FC239.
-4. **FATO (live RAM):** Gear encoding é bitmask: 1=1ª, 2=2ª, 4=3ª, 8=4ª.
+4. **Observação de campo (abr/2026):** `0x3FC106` / `0x3FC239` usam os valores 1, 2, 4, 8. O rótulo 1ª..4ª é o que os logs assumiram. Doc 63: o encoder usa esse bitmask como eixo do ID de troca e **não** prova sozinho 1=1ª.
 5. **FATO (live RAM):** Existem **3 grupos de slot distintos**, confirmados por leitura RAM em tempo real:
 
+| Grupo            | Condição             | S24    | S25    | S27    | Origem ROM                                                                        |
+| ---------------- | -------------------- | ------ | ------ | ------ | --------------------------------------------------------------------------------- |
+| **Aceleração**   | INPUT > ~7%          | 17     | 12     | 12-21  | T4/T5/T10/T11 (0x184xxx)                                                          |
+| **Coast normal** | INPUT=0, decel lenta | 19     | 17     | 17     | Tabelas 0x182xxx (G3)                                                             |
+| **Coast rápido** | INPUT=0, decel forte | **24** | **22** | **22** | **T5(12)+Y=10** (`0x185708`) e espelho S27 (`0x185750`), GATE=1. Não é `0x182ED0` |
 
-| Grupo            | Condição             | S24    | S25    | S27    | Origem ROM                 |
-| ---------------- | -------------------- | ------ | ------ | ------ | -------------------------- |
-| **Aceleração**   | INPUT > ~7%          | 17     | 12     | 12-21  | T4/T5/T10/T11 (0x184xxx)   |
-| **Coast normal** | INPUT=0, decel lenta | 19     | 17     | 17     | Tabelas 0x182xxx (G3)      |
-| **Coast rápido** | INPUT=0, decel forte | **24** | **22** | **22** | **coast_decel @ 0x182ED0** |
-
-
-1. **FATO (live RAM):** O bug 3→1 ocorre **exclusivamente** no grupo "coast rápido". A 20 km/h: S24=24, S25=22 → SPD(20) < S25(22) → 2ª bloqueada → 3→1 direto.
+1. **FATO (live RAM, abr/2026):** com S25=22 e speed abaixo de S25 o evaluator pede o bitmask 1. A atribuição desse pacote 24/22 a `0x182ED0` está revogada (doc 50).
 
 ---
 
@@ -57,14 +67,12 @@
           │  CAMADA 2: shift_threshold_compute_with_mode │
           │  (0x93510)                                   │
           │                                              │
-          │  byte_186750==3 → coast decel path:          │
-          │    shift_mode3_coast_decel_handler (0x92A4C)  │
-          │      └→ shift_slot_eval_with_mode_switch      │
-          │         (0x872B4)                             │
-          │           ├─ 0x3FBBCC==0x26 → 0x187514       │
-          │           │  (coast_decel: 7×22.0 @ 0x182ED0)│
-          │           │  → S24=24, S25=22, S27=22  ← BUG │
-          │           └─ else → 0x184218 (normal)        │
+          │  byte_186750==3 → handler 0x92A4C            │
+          │    (nome "coast_decel" é rótulo antigo)      │
+          │      └→ 0x872B4                              │
+          │           0x26 grava 3FBC14, não os slots    │
+          │           S25/S27 de coast: doc 50           │
+          │           (T5+Y em 185708 / 185750)          │
           └──────────┬───────────────────────────────────┘
                      │ escreve 6 bytes em RAM
                      ▼
@@ -102,16 +110,14 @@ COAST RÁPIDO (INPUT=0, SPD=21, foot-off brusco):
 
 ### Mapeamento de Slots por Grupo (FATO — endereços verificados em assembly)
 
-
 | Slot         | RAM      | Group 1 (Upshift)               | Addr Group1 | Group 2 (Downshift)          | Addr Group2 |
 | ------------ | -------- | ------------------------------- | ----------- | ---------------------------- | ----------- |
 | SLOT_1_2     | 0x3FBC24 | T4 (1→2 UP) 17km/h @0%          | stb@0x9E23C | **T10 (2→1 alt) 23km/h @0%** | stb@0x9E404 |
-| SLOT_??25    | 0x3FBC25 | T5 (2→1 DN) 12km/h @0%          | stb@0x9E208 | **T11 (3→2 DN) 20km/h @0%**  | stb@0x9E6A4 |
+| SLOT??25     | 0x3FBC25 | T5 (2→1 DN) 12km/h @0%          | stb@0x9E208 | **T11 (3→2 DN) 20km/h @0%**  | stb@0x9E6A4 |
 | SLOT_2_3     | 0x3FBC26 | T6 (2→3 UP)                     | stb@0x9E1D4 | T12 (4→3 DN)                 | stb@0x9E3A4 |
 | SLOT27_stay3 | 0x3FBC27 | **T7 (stay-in-3rd gatekeeper)** | stb@0x9E1A0 | T13 (3→2 alt)                | stb@0x9E3D4 |
 | SLOT_FLAG    | 0x3FBC28 | T8/T9                           | —           | —                            | —           |
 | SLOT_CNT     | 0x3FBC29 | —                               | —           | —                            | —           |
-
 
 ### Lógica COMPLETA do gear_zone_evaluator (FATO — disasm 0x837E4-0x83AD0)
 
@@ -143,27 +149,25 @@ Para gear atual = 8 (4ª marcha):
 
 **Consequência para 3→2 (RC #4 + RC #5):**
 
-- **Coast rápido:** S27=22, S25=22. A 20 km/h: 20<22 → sai de 3ª → 20<22 → target=1 (3→1 BUG).
+- **Amostra coast com GATE=1:** S27=22, S25=22 = T5/T7 base + Y=10 (`185708`/`185750`). A 20 km/h os dois compares falham e o evaluator pede bitmask 1. v6.2 zera esse Y.
 - **Retomada:** S27=T7(15%)≈17. A 26 km/h: 26>=17 → FICA na 3ª (arrastando). Para 3→2, S27 precisa ser > speed.
 
 ### Funções de Lookup (ROM)
 
-
-| Função              | EA      | Nome IDA                          | Papel                                                           |
-| ------------------- | ------- | --------------------------------- | --------------------------------------------------------------- |
-| 1D Lookup           | 0xBBDC8 | cal_1d_lookup_trampoline          | Busca linear em array de breakpoints float (é código, não data) |
-| 2D Wrapper          | 0xBBE44 | cal_2d_lookup_interpolate         | Chama 1D lookup para cada eixo, depois interpola 2D             |
-| 2D Interpolation    | 0xBBEC8 | —                                 | Interpolação bilinear com 4 pontos adjacentes                   |
-| Table Dispatcher    | 0x9D860 | shift_table_group_dispatcher      | 4972B, seleciona grupo e escreve slots RAM                      |
-| Mode Switch         | 0x872B4 | shift_slot_eval_with_mode_switch  | Decide entre tabela normal (0x184218) e coast_decel (0x187514)  |
-| Threshold Compute   | 0x93510 | shift_threshold_compute_with_mode | 702 insns, despacha por mode_selector (byte_186750)             |
-| Coast Decel Handler | 0x92A4C | shift_mode3_coast_decel_handler   | Chamado quando mode_selector=3                                  |
-| Coast Decel Counter | 0x926BC | shift_mode3_counter_state_machine | Counters em 0x3FC040/0x3FC409/0x3FC40A                          |
-| Gear Evaluator      | 0x83484 | gear_zone_evaluator               | 1624B, consome slots, retorna target gear                       |
-| Shift Evaluator     | 0x9F060 | shift_point_2d_eval_from_cal      | Chama 2D lookup com descriptors 0x186874/0x18AD70               |
-| Shift State Machine | 0xB1130 | shift_state_machine_transition    | 2520B, estados 0/1/2/3, consome ROM 0x189500+                   |
-| Shift Calculator    | 0xB0740 | shift_schedule_evaluator          | 2544B, paralela a B1130                                         |
-
+| Função              | EA      | Nome IDA                          | Papel                                                                                                |
+| ------------------- | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1D Lookup           | 0xBBDC8 | cal_1d_lookup_trampoline          | Busca linear em array de breakpoints float (é código, não data)                                      |
+| 2D Wrapper          | 0xBBE48 | cal_2d_lookup_interpolate         | Entry real do wrapper. `0xBBE44` não é o alvo do `blrl`                                              |
+| 2D Interpolation    | 0xBBEC8 | —                                 | Interpolação bilinear com 4 pontos adjacentes                                                        |
+| Table Dispatcher    | 0x9D860 | shift_table_group_dispatcher      | 4972B, seleciona grupo e escreve slots RAM                                                           |
+| Mode Switch         | 0x872B4 | shift_slot_eval_with_mode_switch  | `0x26` → `3FBC14 = 1D 0x181908 × 2D(r3=0x187514)`; senão `1D 0x184218 × 3FC148`. Não escreve S24–S29 |
+| Threshold Compute   | 0x93510 | shift_threshold_compute_with_mode | 702 insns, despacha por mode_selector (byte_186750)                                                  |
+| Coast Decel Handler | 0x92A4C | shift_mode3_coast_decel_handler   | Chamado quando mode_selector=3                                                                       |
+| Coast Decel Counter | 0x926BC | shift_mode3_counter_state_machine | Counters em 0x3FC040/0x3FC409/0x3FC40A                                                               |
+| Gear Evaluator      | 0x83484 | gear_zone_evaluator               | 1624B, consome slots, retorna target gear                                                            |
+| Shift Evaluator     | 0x9F060 | shift_point_2d_eval_from_cal      | Chama 2D lookup com descriptors 0x186874/0x18AD70                                                    |
+| Shift State Machine | 0xB1130 | shift_state_machine_transition    | 2520B, estados 0/1/2/3, consome ROM 0x189500+                                                        |
+| Shift Calculator    | 0xB0740 | shift_schedule_evaluator          | 2544B, paralela a B1130                                                                              |
 
 ---
 
@@ -184,14 +188,12 @@ SecurityAccess (0x27 subfunction 03→04) necessário. Algoritmo: LFSR 24-bit, 5
 
 RAM 0x3FC106 (gear atual) e 0x3FC239 (gear target) usam **bitmask**, não ordinal:
 
-
 | Valor | Marcha |
 | ----- | ------ |
 | 0x01  | 1ª     |
 | 0x02  | 2ª     |
 | 0x04  | 3ª     |
 | 0x08  | 4ª     |
-
 
 ### Três Grupos de Slot (FATO — observação RAM direta, centenas de amostras)
 
@@ -203,8 +205,8 @@ A leitura contínua dos slots 0x3FBC24-0x3FBC29 durante condução revelou que o
 S24=17  S25=12  S26=28  S27=12-21  S28=33  S29=1
 ```
 
-- S25=12 corresponde ao nosso T11 patcheado (20→12). PROVA que o patch T11 está ativo.
-- S24=17 corresponde a T4 @0% (17 km/h).
+- S25=12, neste log, é T11 já patcheado 20→12 (v5). No AA stock T11@0% é 20. v6.2 não mexe em T11.
+- S24=17 é T4@0% do v5 (17 km/h). v6.2 baixa as rows 0–1 de T4 para 15.0 (doc 26).
 
 **Grupo COAST NORMAL** (INPUT=0, desaceleração lenta):
 
@@ -212,8 +214,7 @@ S24=17  S25=12  S26=28  S27=12-21  S28=33  S29=1
 S24=19  S25=17  S26=28  S27=17  S28=42  S29=0
 ```
 
-- Origem ROM: tabelas na região 0x182xxx, possivelmente 0x182728.
-- S25=17 provém de uma tabela DIFERENTE de T11. Group 3 ou blend.
+- S25=17 com GATE=1 é `T5(12)+Y=5` da 1D `0x185708` (doc 50), não uma tabela `0x182xxx`.
 
 **Grupo COAST RÁPIDO** (INPUT=0, desaceleração forte / foot-off abrupto):
 
@@ -221,57 +222,25 @@ S24=19  S25=17  S26=28  S27=17  S28=42  S29=0
 S24=24  S25=22  S26=28  S27=22  S28=42  S29=0
 ```
 
-- **ROOT CAUSE do 3→1.** Origem: coast_decel table @ 0x182ED0 (7 × 22.0 floats).
-- Ativado quando RAM 0x3FBBCC == 0x26 (mode selector).
-- A 20 km/h: SPD(20) < S25(22) → 2ª inelegível → target=1ª → 3→1 direto.
+- S25=22 com GATE=1 é `T5(12)+Y=10` (`0x185708`). S27 segue o espelho `0x185750` (doc 50).
+- `3FBBCC==0x26` **não** escreve estes slots. Esse tipo grava o canal `3FBC14` (doc 71).
+- Amostra de campo: speed abaixo de S25=22 pede bitmask 1. A frase "origem = 0x182ED0" está revogada.
 
-### Cadeia de Despacho: Coast Rápido (FATO — disasm verificado)
+### Cadeia que este doc atribuía ao coast rápido — revogada
+
+O bloco abaixo foi o disasm publicado em abr/2026. **Não confere com a ROM** (doc 71). Mantido só para não perder o rastro do erro.
 
 ```
-shift_threshold_compute_with_mode (0x93510)
-  └── byte_186750 == 3 (mode3) → shift_mode3_coast_decel_handler (0x92A4C)
-        └── shift_slot_eval_with_mode_switch (0x872B4)
-              ├── RAM 0x3FBBCC == 0x26 → r3 = 0x187514 (coast_decel descriptor)
-              │     └── 0x187514 → PTR → 0x182EC8 (axis) → 0x182ED0 (data: 7×22.0)
-              └── RAM 0x3FBBCC != 0x26 → r3 = 0x184218 (normal table)
+; TEXTO ANTIGO, INCORRETO:
+lwz     r3, 0(r25)
+cmpwi   r3, 0x26
+bne     loc_87C64
+ori     r3, r3, 0x7514
 ```
 
-**FATO (disasm 0x87BE8):**
+O que a ROM faz em `0x872B4` está no doc 71: `3FBBCC==0x26` escolhe a 1D `0x181908` vezes a 2D chamada com `r3=0x187514`, e grava `**3FBC14**`. O normal (`!=0x26`) usa a 1D `0x184218` vezes `3FC148`, no mesmo store. Nenhum dos dois caminhos escreve S24/S25.
 
-```asm
-lwz     r3, 0(r25)          ; r3 = RAM[0x3FBBCC] = mode
-cmpwi   r3, 0x26            ; is coast decel?
-bne     loc_87C64           ; no → normal path (r3=0x184218)
-lis     r3, 0x18            ; yes →
-ori     r3, r3, 0x7514      ; r3 = 0x187514 (coast_decel descriptor)
-```
-
-### Coast Decel Table @ 0x182ED0 (FATO — dados ROM)
-
-Tabela 2D referenciada por descriptor 0x187514 → 0x182EC8. Controla base threshold para S25/S27.
-
-**Dados (7 entradas, INPUT vs threshold base):**
-
-
-| Input (throttle proxy) | Threshold Base (km/h) | Bytes       |
-| ---------------------- | --------------------- | ----------- |
-| ≤ 0% (decel forte)     | **22.0**              | 41 B0 00 00 |
-| 0%                     | **22.0**              | 41 B0 00 00 |
-| 0%                     | **22.0**              | 41 B0 00 00 |
-| ~10%                   | **22.0**              | 41 B0 00 00 |
-| ~20%                   | **22.0**              | 41 B0 00 00 |
-| ~40%                   | **22.0**              | 41 B0 00 00 |
-| ~60%                   | **22.0**              | 41 B0 00 00 |
-
-
-**Scaling (FATO):** S24 = base × factor. Factor vem de 1D scaling table @ 0x181908. Para S24: 22.0 × ~1.09 ≈ 24.0 (observado em RAM).
-
-**ROM Addresses:**
-
-- Descriptor: `0x187514` (referenced by shift_slot_eval_with_mode_switch @0x87C20)
-- Axis pointer: `0x182EC8`
-- Data start: `0x182ED0`
-- Data end: `0x182F00` (28 bytes = 7 × float32)
+`0x182ED0` (`41 B0 00 00` = 22.0) não é o payload desse descritor (doc 72). S25=22 medido em coast é `12+10` do modifier `0x185708` (doc 50), não `22.0 × 1.09`.
 
 ---
 
@@ -280,17 +249,13 @@ Tabela 2D referenciada por descriptor 0x187514 → 0x182EC8. Controla base thres
 Cada tabela de shift schedule consiste em:
 
 ```
-[N pairs de (speed_float, throttle_float)]  — N = count (7 ou 11)
-[u32 count]                                  — 0x07 ou 0x0B
-[u32 pointer_to_data_start]                  — auto-referencial (footer)
-[u32 null/padding]
+[pares float BE]                 ; 1º = breakpoint, 2º = valor devolvido (0xBBDDC / 0xBBDE8)
+[u32 com count no byte alto]    ; ex. 08 00 00 00, 4 bytes ANTES do endereço passado
+[u32 pointer_to_data_start]     ; este é o endereço do lis/addi
+[u32 0]
 ```
 
-O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; addi r3, r3, offset`.
-
-- **Coluna 0:** Speed threshold em km/h (float32 big-endian)
-- **Coluna 1:** Throttle breakpoint em % (float32 big-endian, 0.0-99.6%)
-- **Interpretação:** "Se throttle <= col1, o threshold de velocidade para esta transição é col0"
+Nas tabelas T4–T13 deste doc o breakpoint é o throttle e o valor é a velocidade. A frase antiga "col0 = km/h, col1 = throttle" inverte o par. O entry `0xBBDC8` faz `lbz` no endereço passado (byte alto do ponteiro = 0); o count da cal está em `addr−4` (doc 72).
 
 ---
 
@@ -302,8 +267,7 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 
 #### Table 4 — 1→2 Upshift (0x184B10) — Footer: 0x184B68
 
-**Papel no código:** Group 1 → SLOT_1_2. Group 3 → SLOT_1_2. Define "velocidade mínima para estar em 2ª" durante upshift.
-
+**Papel no código:** Group 1 → SLOT_1_2. Valores abaixo são o AA de origem. v6.2 grava 15.0 nas rows 0 e 1 (0x184B10 e 0x184B18).
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -318,11 +282,9 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 56         |
 | 99.6       | 57         |
 
-
 #### Table 6 — 2→3 Upshift (0x184BD0) — Footer: 0x184C28
 
 **Papel no código:** Group 1 → SLOT_2_3. Group 3 → SLOT_2_3.
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -337,11 +299,9 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 105        |
 | 99.6       | 108        |
 
-
 #### Table 8 — 3→4 Upshift (0x184C90) — Footer: 0x184CE8
 
 **Papel no código:** Group 1 → SLOT_FLAG.
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -356,13 +316,11 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 78         | 135        |
 | 99.6       | 154        |
 
-
 ### Tabelas de Downshift (velocidade ABAIXO do threshold → desce marcha)
 
 #### Table 5 — 2→1 Downshift (0x184B70) — Footer: 0x184BC8
 
-**Papel no código:** Group 1 → SLOT_??25. Group 3 → SLOT_??25. Define "piso mínimo de 2ª marcha" durante upshift eval. Abaixo de T5 → target=1ª.
-
+**Papel no código:** Group 1 → SLOT*??25. Group 3 → SLOT*??25. Define "piso mínimo de 2ª marcha" durante upshift eval. Abaixo de T5 → target=1ª.
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -377,11 +335,9 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 35         |
 | 99.6       | 53         |
 
-
 #### Table 11 — 3→2 Downshift ⚠️ (0x184DB0) — Footer: 0x184E08 — ROOT CAUSE #1
 
-**Papel no código:** Group 2 → **SLOT_??25**. Define "piso mínimo de 2ª marcha" durante **downshift eval**. Abaixo de T11 → target=**1ª** (não 2ª!).
-
+**Papel no código:** Group 2 → **SLOT??25**. Define "piso mínimo de 2ª marcha" durante **downshift eval**. Abaixo de T11 → target=**1ª** (não 2ª!).
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -396,15 +352,13 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 35         |
 | 99.6       | 53         |
 
-
-**⚠️ ROOT CAUSE:** No `gear_zone_evaluator`, para gear=3: `speed < SLOT_??25 → target=1`. Com T11=20km/h, qualquer velocidade abaixo de 20 km/h em coasting → **target é 1ª marcha** (skip direto 3→1). Confirmado por FORScan: 3→1 @ 17.6 km/h em Closed Throttle.
+**AA stock:** T11@0% = 20. v5 já gravou 12 nessas rows. O 17/22 visto em coast depois disso não é T11; é T5(12)+Y (doc 50). O compare `speed < S25 → bitmask 1` no evaluator permanece.
 
 **Semântica real (provada por código):** T11 NÃO é simplesmente "3→2 downshift threshold". Na prática, o evaluator usa T11 como fronteira entre zona de 1ª e zona de 2ª. Abaixo de T11 → 1ª é o target.
 
 #### Table 10 — 2→1 Alt ⚠️ (0x184D50) — Footer: 0x184DA8 — ROOT CAUSE #2 (trapping)
 
 **Papel no código:** Group 2 → **SLOT_1_2**. Define "velocidade mínima para sair de 1ª" durante **downshift eval**. Abaixo de T10 e já em 1ª → **preso em 1ª**.
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -419,13 +373,11 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 56         |
 | 99.6       | 57         |
 
-
 **⚠️ TRAPPING:** Uma vez em 1ª (causado por T11), `gear_zone_evaluator` usa SLOT_1_2 = T10 para avaliar se pode sair. Com T10=23 @0%: `17.6 < 23 → target=1 → preso até 23 km/h`. Gap morto entre T11(20) e T10(23) = zona sem 2ª marcha acessível.
 
 #### Table 12 — 4→3 Downshift (0x184E10) — Footer: 0x184E68
 
 **Papel no código:** Group 2 → SLOT_2_3.
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -440,11 +392,9 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 105        |
 | 99.6       | 108        |
 
-
 #### Table 13 — 3→2 Alt (0x184E70) — Footer: 0x184EC8
 
 **Papel no código:** Group 2 → SLOT_3_2a. Boundary entre 3ª e 4ª zona no downshift eval.
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -459,13 +409,11 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 89         |
 | 99.6       | 99         |
 
-
 ### Tabelas Auxiliares / Group 3
 
 #### Table 7 — 1→2 Alt (0x184C30) — Footer: 0x184C88
 
-**Papel no código:** Usado no cálculo inicial de f29/f30 em `shift_table_group_dispatcher` (0x9DA34). Group 3 → SLOT_??25 ou SLOT_3_2a.
-
+**Papel no código:** Usado no cálculo inicial de f29/f30 em `shift_table_group_dispatcher` (0x9DA34). Group 3 → SLOT??25 ou SLOT_3_2a.
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -480,11 +428,9 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 89         |
 | 99.6       | 99         |
 
-
 #### Table 9 — 3→4 Alt (0x184CF0) — Footer: 0x184D48
 
 **Papel no código:** Group 1 → SLOT_FLAG ou SLOT_CNT (cálculo paralelo a T8).
-
 
 | Throttle % | Speed km/h |
 | ---------- | ---------- |
@@ -498,7 +444,6 @@ O **footer pointer** é o endereço passado a `qword_BBDC8` via `lis r3, 0x18; a
 | 93         | 130        |
 | 93         | 130        |
 | 99.6       | 144        |
-
 
 ---
 
@@ -555,14 +500,13 @@ MAS a 19.9 km/h em Group 2: 19.9 < 20 → target = 1 → 3→1 → solavanco
 
 ### Proposta de Correção
 
-**Movida para doc 26 (patch-proposal-revised.md).** Ver doc 26 v4 para análise completa incluindo:
+Estado atual da cal, não deste texto de abr/2026: **doc 26**.
 
-- Patches anteriores (T11, T10, T4) — já aplicados, eficazes para seus respectivos grupos
-- **NOVO Patch 4:** coast_decel table @ 0x182ED0 — ROOT CAUSE PRINCIPAL do 3→1
+- v5: T11 20→12, T10, T4 row 3 (23→18). T5 permanece 12.
+- v6.2: v5 + T4 rows 0–1 → 15.0 + Y=0 em `0x185708` e `0x185750` (doc 50). O 22/17 de S25 em coast era esse Y, não `0x182ED0`.
+- **Não aplicar** o "Patch 4" deste doc em `0x182ED0`.
 
-**⚠️ ALERTA (v2, ainda válido):** A proposta ChatGPT de subir T11 era INVERTIDA. Subir T11 = ampliar zona de 1ª.
-
-**⚠️ NOVA DESCOBERTA (v3):** Os patches T10/T11/T4 corrigem APENAS o grupo "aceleração" e parcialmente o "downshift". O grupo "coast rápido" (que causa a maioria dos 3→1 observados em campo) usa tabelas **completamente diferentes** em 0x182ED0, e precisa de patch próprio.
+Subir T11 amplia a zona do bitmask 1. Isso continua válido (doc 26).
 
 ---
 
@@ -571,7 +515,6 @@ MAS a 19.9 km/h em Group 2: 19.9 < 20 → target = 1 → 3→1 → solavanco
 ### Gear Ratios (0x189700)
 
 Grupos de 3 (nominal, max, min):
-
 
 | Grupo | Nominal | Max  | Min  | Possível Significado |
 | ----- | ------- | ---- | ---- | -------------------- |
@@ -582,11 +525,9 @@ Grupos de 3 (nominal, max, min):
 | 5     | 1.00    | 1.06 | 1.00 | Direct (ref)         |
 | 6     | 0.70    | 0.94 | 1.00 | Reverse/overdrive    |
 
-
 ### Torque Converter Curve (0x18AD10)
 
 Stall ratio: 2.117. Speed ratio vs torque ratio (8 pontos):
-
 
 | Speed Ratio | Torque Ratio |
 | ----------- | ------------ |
@@ -599,41 +540,35 @@ Stall ratio: 2.117. Speed ratio vs torque ratio (8 pontos):
 | 0.70        | 1.189        |
 | 0.80        | —            |
 
-
 ---
 
 ## Funções Identificadas (renomeadas no IDA)
 
-
-| EA      | Nome IDA                           | Tamanho | Papel                                                     |
-| ------- | ---------------------------------- | ------- | --------------------------------------------------------- |
+| EA      | Nome IDA                            | Tamanho | Papel                                                     |
+| ------- | ----------------------------------- | ------- | --------------------------------------------------------- |
 | 0x83484 | **gear_zone_evaluator** ✅          | 1624B   | Consome slots RAM, retorna target gear (1/2/8) → 0x3FC239 |
 | 0x9D860 | **shift_table_group_dispatcher** ✅ | 4972B   | Seleciona grupo de tabelas, escreve slots RAM 0x3FBC24-29 |
-| 0xBBDC8 | qword_BBDC8                        | —       | 1D lookup (trampolim, chamado via blrl)                   |
-| 0xBBE44 | cal_2d_lookup_interpolate          | —       | 2D wrapper (chama 1D + interpola)                         |
-| 0xBBEC8 | —                                  | —       | 2D interpolação bilinear                                  |
-| 0x9F060 | shift_point_2d_eval_from_cal       | —       | Chama 2D lookup com descriptors 0x186874/0x18AD70         |
-| 0xB1130 | shift_state_machine_transition     | 2520B   | Estados 0/1/2/3, comparações float vs ROM 0x189500+       |
-| 0xB0740 | shift_schedule_evaluator           | 2544B   | Paralela a B1130                                          |
-| 0xB1E48 | shift_ratio_guard_eval             | —       | Guard de ratio                                            |
-
+| 0xBBDC8 | qword_BBDC8                         | —       | 1D lookup (trampolim, chamado via blrl)                   |
+| 0xBBE48 | cal_2d_lookup_interpolate           | —       | 2D wrapper. Entry do `blrl` (não `0xBBE44`)               |
+| 0xBBEC8 | —                                   | —       | 2D interpolação bilinear                                  |
+| 0x9F060 | shift_point_2d_eval_from_cal        | —       | Chama 2D lookup com descriptors 0x186874/0x18AD70         |
+| 0xB1130 | shift_state_machine_transition      | 2520B   | Estados 0/1/2/3, comparações float vs ROM 0x189500+       |
+| 0xB0740 | shift_schedule_evaluator            | 2544B   | Paralela a B1130                                          |
+| 0xB1E48 | shift_ratio_guard_eval              | —       | Guard de ratio                                            |
 
 ### RAM Slots e Variáveis Documentados
 
-
-| Endereço | Nome            | Tipo | Papel                                         |
-| -------- | --------------- | ---- | --------------------------------------------- |
-| 0x3FBC24 | S24 / SLOT_1_2  | byte | Threshold 1↔2 (T4, T10, ou coast_decel)       |
-| 0x3FBC25 | S25 / SLOT_??25 | byte | Piso mínimo para 2ª (T5, T11, ou coast_decel) |
-| 0x3FBC26 | S26 / SLOT_2_3  | byte | Threshold 2↔3 (T6, T12, ou coast_decel)       |
-| 0x3FBC27 | S27 / SLOT_3_2a | byte | Threshold 3↔2 (T7, T13, ou coast_decel)       |
-| 0x3FBC28 | S28 / SLOT_FLAG | byte | Flag/threshold alto (T8/T9)                   |
-| 0x3FBC29 | S29 / SLOT_CNT  | byte | Grupo ativo: 1=accel, 0=coast                 |
-| 0x3FBBCC | mode_selector   | u32  | Modo do coast: 0x26=coast_decel rápido        |
-| 0x3FC106 | gear_current    | byte | Marcha atual (bitmask: 1/2/4/8)               |
-| 0x3FC239 | gear_target     | byte | Gear target (bitmask: 1/2/4/8)                |
-| 0x3FC359 | group3_flag     | byte | Flag do group 3 (coast_decel ativo)           |
-| 0x3FC372 | group_flag      | byte | Flag de grupo de shift                        |
-| 0x3FD493 | vehicle_speed   | byte | Velocidade atual (km/h)                       |
-
-
+| Endereço | Nome            | Tipo | Papel                                                                 |
+| -------- | --------------- | ---- | --------------------------------------------------------------------- |
+| 0x3FBC24 | S24 / SLOT_1_2  | byte | Threshold 1↔2 (T4 ou T10). Coast com GATE soma outro caminho (doc 50) |
+| 0x3FBC25 | S25 / SLOT??25  | byte | T5 ou T11, mais Y de `0x185708` quando GATE=1                         |
+| 0x3FBC26 | S26 / SLOT_2_3  | byte | Threshold 2↔3 (T6, T12)                                               |
+| 0x3FBC27 | S27 / SLOT_3_2a | byte | T7 ou T13, mais Y de `0x185750` quando GATE=1                         |
+| 0x3FBC28 | S28 / SLOT_FLAG | byte | Flag/threshold alto (T8/T9)                                           |
+| 0x3FBC29 | S29 / SLOT_CNT  | byte | 1 no log de aceleração, 0 no log de coast. Não é o tipo `0x26`        |
+| 0x3FBBCC | shift type id   | u16  | `sth` em `0x86BB0`. `0x26` se `3FC3AA≠0`. Não escreve estes slots     |
+| 0x3FC106 | gear_current    | byte | Marcha atual (bitmask: 1/2/4/8)                                       |
+| 0x3FC239 | gear_target     | byte | Gear target (bitmask: 1/2/4/8)                                        |
+| 0x3FC359 | group3_flag     | byte | Flag lida no dispatcher. Não é o bit que seleciona `0x182ED0`         |
+| 0x3FC372 | group_flag      | byte | Flag de grupo de shift                                                |
+| 0x3FD493 | vehicle_speed   | byte | Velocidade atual (km/h)                                               |

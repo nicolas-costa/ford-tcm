@@ -1,7 +1,9 @@
 # 31 — Tabelas de Pressão / Rastro EPC (atualizado)
 
-**Data:** 2026-08-07 (rev. rastro invertido EPC)  
-**Status:** 🔴 Hipótese “`0x181xxx` = EPC line-pressure” **FALSIFICADA** — rastro de duty EPC sobe até QADC, sem lookup ROM de pressão  
+**Data:** 2026-08-07 (rev. rastro invertido EPC); **2026-09-07** campo SSA + struct idx0
+**Status:** 🔴 Hipótese “`0x181xxx` = EPC line-pressure” **FALSIFICADA** — rastro de duty EPC sobe até QADC, sem lookup ROM de pressão.
+
+> **Atualização 2026-09-07 (rua) — ver [doc 52](52-idx0-is-pressure-solenoid-road-2026-09-07.md):** as células C4/C8/D2 do **idx0** são, com alta probabilidade, o **próprio solenóide de controle de pressão (EPC)** — duty inverso e monotônico com o acelerador, medido com marcha constante, e independente da marcha. O rótulo `idx4 = EPC` deste doc e do doc 23 está **errado** (é por isso que `0x3FA722` sempre leu 0). O fenômeno “pressão” volta ao jogo pelo **laço de corrente do idx0**; as tabelas `0x181xxx` seguem **fora** dessa cadeia.
 **Dependência:** pipeline de duty (docs 15-17), channel→solenoid (doc 23), shift tables (doc 24), cal_mod (análise 2026-08-07)  
 **Script:** `scripts/scan_calibration_descriptors.py` · logger: `scripts/tcm_pressure_logger.py`
 
@@ -91,15 +93,17 @@ Tabela auxiliar `0x288C8`: halfwords **`0x0034, 0x0035, 0x0036`** OR-ados no CCW
 - Base: `r13+0x17C4` = **`0x3FA6C4`**; stride **`0x14`**; 7 canais na ordem `0x252F4`.
 - Duty em **`+0xE`** (u16) → `io_set`.
 
-| Canal | idx | hw | io | period | Duty (+0xE) |
-|-------|-----|----|----|--------|-------------|
-| SSA | 0 | 0x0D | 3 | 0 (ON/OFF) | 0x3FA6D2 |
-| SSB | 1 | 0x0C | 2 | 0 | 0x3FA6E6 |
-| SSC | 2 | 0x0E | 4 | 0 | 0x3FA6FA |
-| SSD | 3 | 0x0F | 5 | 0 | 0x3FA70E |
-| **EPC** | **4** | **0x11** | **7** | **100 (~100Hz)** | **0x3FA722** |
-| SSE | 5 | 0x10 | 6 | 300 (~33Hz) | 0x3FA736 |
+| Canal | idx | hw | io | byte3 / period[byte3] | Duty (+0xE) |
+|-------|-----|----|----|----------------------|-------------|
+| idx0 (nome OEM TBD) | 0 | 0x0D | 3 | **1** / `0x18A2A8[1]=0` → init `+4=0` | 0x3FA6D2 |
+| idx1 | 1 | 0x0C | 2 | 0 / 0 | 0x3FA6E6 |
+| idx2 | 2 | 0x0E | 4 | 0 / 0 | 0x3FA6FA |
+| idx3 | 3 | 0x0F | 5 | 0 / 0 | 0x3FA70E |
+| **idx4 (“EPC”?)** | **4** | **0x11** | **7** | **5** / **10** → init `+4=100` | **0x3FA722** |
+| idx5 (“SSE”?) | 5 | 0x10 | 6 | 6 / 30 → init `+4=300` | 0x3FA736 |
 | virtual | 6 | 0x03 | 4 | flags 0x05 | 0x3FA74A |
+
+**FATO entry idx0** `@ 0x252F4`: bytes `0D 03 00 01`. Rótulo “SSA” = HIPÓTESE legado (doc 23).
 
 ### Campo `+4` (alvo de ramp) e slots `0x18B8–0x18C4`
 
@@ -154,6 +158,39 @@ Células vivas (corr THR ≈ −0.84):
 | **0x3FA6D2** | mesma tendência — idx0 `+0xE` (SSA duty, não EPC) |
 
 TPU/MIOS MMIO **não** legível via 0x23.
+
+---
+
+## Campo idx0 2026-09-07 (FULL CSV) + IDA
+
+### Struct idx0 — FATO (assembly)
+
+| Off | EA | Writer / uso |
+|-----|-----|----------------|
+| +0 | `0x3FA6C4` | `sth` após `sub_424FC(idx,+2)` @ `0x425C8` — sense escalado |
+| +2 | `0x3FA6C6` | EMA `qadc_read(0x0D)` em `prepare @ 0x42674` (`sthu` @ `0x426BC`) |
+| +4 | `0x3FA6C8` | alvo de `solenoid_duty_ramp_calculate @ 0x41DFC` (`lhz 4(r4)`); writers estáticos = init `period×10` @ `0x42210` + `next_pending` @ `0x42434` |
+| +0xC | `0x3FA6D0` | flags (bit1 = enable update @ `0x425A8`) |
+| +0xE | `0x3FA6D2` | duty → `io_set` |
+
+Ramp (`0x41E04–0x41EE0`): `error = (+4) − (+0)`; se `+4==0` → duty forçado 0.
+
+### Contradição idx0 `+4` (FATO + DESCONHECIDO)
+
+- **FATO:** init idx0 `+4 = 0x18A2A8[1]×10 = 0`.
+- **FATO:** stores `r13+0x18B8…18C4` = **zero** no flash; `0x41190` só tem caller órfão `0x4B390`.
+- **FATO campo** (`tcm_pressure_20260907_073433.csv`): `C8` idle **~9440–9550** (min 5140); 92.7% das amostras `|C8−C4|<200`.
+- **FATO campo tip-in 3→2:** `C8` frequentemente cai a **~5300–6150** *antes* da troca enquanto `C4` ainda ~9400 (alvo lidera). Evento SMOOTH `t≈729.2s`: no instante da marcha `C8≈8150` com `C4≈5221`. Evento JOLT `t≈958.2s`: ambos ~6600–6700.
+- **DESCONHECIDO:** quem escreve idx0 `+4` ≈ 5k–9k em runtime (não é `period×10`; path `18B8` sem writer estático).
+- **HIPÓTESE nome:** idx0≠SSA no chart OEM (3→2 mexe SSE); idx0=SSE **não** provado.
+
+### Implicação operacional
+
+Logs C4/C8/D2 = **apply loop do canal idx0** (sense/alvo/duty), **não** pressão de linha EPC e **não** identidade OEM fechada. Correlação tranco ↔ C8 é sobre alinhamento desse ramp no tip-in patchado — **não** autoriza patch em `0x181xxx`.
+
+Logger: `scripts/tcm_pressure_logger.py` — `--fast` inclui `C6`; `--full`; `--cmd` → `FLG@0x3FA6D0` + `CMD@0x3FA7B8`; `--epc` opcional.
+
+**Próximo ROI:** duties `+0xE` idx0–5 vs GEAR × chart OEM; em paralelo caça writer de `+4`.
 
 ---
 
